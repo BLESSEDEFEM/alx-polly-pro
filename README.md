@@ -73,6 +73,8 @@ Prompting Strategy:
 
 
 
-Walkthrough Recording or Written Explanation
+
+
+
 
 👉 This project demonstrates how I can build real-world, production-grade apps by combining strong engineering practices with AI collaboration.
