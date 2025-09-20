@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Loader2, 
   Plus, 
@@ -40,6 +41,7 @@ interface PollFormData {
   description: string;
   allowMultipleVotes: boolean;
   isAnonymous: boolean;
+  pollCategory: string;
 }
 
 /**
@@ -82,6 +84,7 @@ export function CreatePollForm() {
     description: '',
     allowMultipleVotes: false,
     isAnonymous: false,
+    pollCategory: 'general',
   });
   
   // Options state
@@ -259,6 +262,7 @@ export function CreatePollForm() {
         expiresAt,
         allowMultipleVotes: formData.allowMultipleVotes,
         isAnonymous: formData.isAnonymous,
+        pollCategory: formData.pollCategory,
       };
 
       const newPoll = await createPoll(pollData);
@@ -461,8 +465,33 @@ export function CreatePollForm() {
                 <Settings className="h-4 w-4" />
                 Poll Settings
               </Label>
-              
               <div className="space-y-4 pl-6">
+                {/* Poll Category */}
+                <div className="space-y-2">
+                  <Label htmlFor="pollCategory" className="text-sm font-normal">
+                    Category
+                  </Label>
+                  <Select 
+                    value={formData.pollCategory} 
+                    onValueChange={(value) => handleInputChange('pollCategory', value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="general">General</SelectItem>
+                      <SelectItem value="entertainment">Entertainment</SelectItem>
+                      <SelectItem value="sports">Sports</SelectItem>
+                      <SelectItem value="technology">Technology</SelectItem>
+                      <SelectItem value="politics">Politics</SelectItem>
+                      <SelectItem value="education">Education</SelectItem>
+                      <SelectItem value="business">Business</SelectItem>
+                      <SelectItem value="lifestyle">Lifestyle</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="flex items-center space-x-3">
                   <Checkbox
                     id="allowMultiple"

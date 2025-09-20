@@ -55,6 +55,8 @@ export interface Poll {
   allowMultipleVotes: boolean;
   /** Whether votes are recorded anonymously (no userId tracking) */
   isAnonymous: boolean;
+  /** Category of the poll for organization and filtering */
+  pollCategory: string;
 }
 
 /**
@@ -110,6 +112,8 @@ export interface CreatePollFormData {
   allowMultipleVotes: boolean;
   /** Whether to make votes anonymous */
   isAnonymous: boolean;
+  /** Category of the poll for organization and filtering */
+  pollCategory?: string;
 }
 
 /**

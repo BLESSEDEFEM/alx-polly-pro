@@ -76,6 +76,11 @@ export function PollCard({
             {poll.isAnonymous && (
               <Badge variant="outline">Anonymous</Badge>
             )}
+            {poll.pollCategory && (
+              <Badge variant="secondary" className="capitalize">
+                {poll.pollCategory}
+              </Badge>
+            )}
           </div>
         </div>
         

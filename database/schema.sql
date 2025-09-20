@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS public.polls (
     expires_at TIMESTAMP WITH TIME ZONE,
     allow_multiple_votes BOOLEAN DEFAULT false NOT NULL,
     is_anonymous BOOLEAN DEFAULT false NOT NULL,
-    is_active BOOLEAN DEFAULT true NOT NULL
+    is_active BOOLEAN DEFAULT true NOT NULL,
+    poll_category TEXT DEFAULT 'general' NOT NULL
 );
 
 -- Enable RLS on polls table
@@ -91,10 +92,14 @@ CREATE TABLE IF NOT EXISTS public.votes (
     poll_id UUID REFERENCES public.polls(id) ON DELETE CASCADE NOT NULL,
     option_id UUID REFERENCES public.poll_options(id) ON DELETE CASCADE NOT NULL,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    voter_ip INET,
+    voter_session TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     
-    -- Ensure unique votes per user per poll (for single-vote polls)
-    UNIQUE(poll_id, user_id, option_id)
+    -- Ensure unique votes per user per poll (for authenticated users)
+    UNIQUE(poll_id, user_id),
+    -- Ensure unique votes per IP per poll (for anonymous users)
+    UNIQUE(poll_id, voter_ip, voter_session)
 );
 
 -- Enable RLS on votes table
@@ -115,19 +120,21 @@ CREATE POLICY "Users can view non-anonymous votes" ON public.votes
 -- Allow authenticated users to create votes
 CREATE POLICY "Authenticated users can vote" ON public.votes
     FOR INSERT WITH CHECK (
-        auth.role() = 'authenticated' 
-        AND auth.uid() = user_id
-        AND EXISTS (
-            SELECT 1 FROM public.polls 
-            WHERE polls.id = poll_id 
-            AND polls.is_active = true
-            AND (polls.expires_at IS NULL OR polls.expires_at > NOW())
-        )
+        -- Allow authenticated users to vote
+        (auth.role() = 'authenticated' AND auth.uid() = user_id)
+        OR
+        -- Allow anonymous voting when poll allows it
+        (user_id IS NULL AND voter_ip IS NOT NULL AND voter_session IS NOT NULL)
     );
 
 -- Allow users to view their own votes
 CREATE POLICY "Users can view their own votes" ON public.votes
-    FOR SELECT USING (auth.uid() = user_id);
+    FOR SELECT USING (
+        auth.uid() = user_id
+        OR
+        -- Anonymous users can view their votes via session
+        (user_id IS NULL AND voter_session = current_setting('app.voter_session', true))
+    );
 
 -- ============================================================================
 -- INDEXES FOR PERFORMANCE

@@ -173,6 +173,128 @@ The application will be available at `http://localhost:3000` (or `http://localho
    - Close and reopen the browser
    - Verify session is maintained
 
+## 🗄️ Database Schema
+
+The Polly Pro application uses a PostgreSQL database hosted on Supabase with the following schema design:
+
+### Tables Overview
+
+#### 1. **polls** - Main poll entities
+```sql
+CREATE TABLE public.polls (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    description TEXT,
+    is_anonymous BOOLEAN DEFAULT false NOT NULL,
+    is_active BOOLEAN DEFAULT true NOT NULL,
+    poll_category TEXT DEFAULT 'general' NOT NULL,
+    poll_visibility TEXT DEFAULT 'public' NOT NULL CHECK (poll_visibility IN ('public', 'private')),
+    created_by UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE
+);
+```
+
+#### 2. **poll_options** - Available choices for each poll
+```sql
+CREATE TABLE public.poll_options (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    poll_id UUID REFERENCES public.polls(id) ON DELETE CASCADE NOT NULL,
+    text TEXT NOT NULL,
+    vote_count INTEGER DEFAULT 0 NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+```
+
+#### 3. **votes** - User voting records
+```sql
+CREATE TABLE public.votes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    poll_id UUID REFERENCES public.polls(id) ON DELETE CASCADE NOT NULL,
+    option_id UUID REFERENCES public.poll_options(id) ON DELETE CASCADE NOT NULL,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    
+    -- Ensures one vote per user per poll
+    UNIQUE(poll_id, user_id)
+);
+```
+
+### Relationships
+
+```
+auth.users (Supabase Auth)
+    ↓ (1:many)
+polls
+    ↓ (1:many)
+poll_options
+    ↑ (many:1)
+votes ← (many:1) → auth.users
+```
+
+### Key Features
+
+#### **Voting Restrictions**
+- **One Vote Per Poll**: Each user can only vote once per poll (enforced by `UNIQUE(poll_id, user_id)`)
+- **Anonymous Voting**: Supports anonymous polls where vote details are hidden
+- **Vote Tracking**: Automatic vote count updates via database triggers
+
+#### **Poll Organization**
+- **Categories**: Polls can be organized by category (e.g., 'general', 'work', 'entertainment')
+- **Visibility**: Polls can be 'public' (visible to all) or 'private' (restricted access)
+- **Expiration**: Optional expiration dates for time-limited polls
+
+#### **Security & Access Control**
+- **Row Level Security (RLS)**: Enabled on all tables with comprehensive policies
+- **User Ownership**: Poll creators have full control over their polls
+- **Anonymous Support**: Allows voting without user authentication (user_id can be NULL)
+
+### Database Policies
+
+#### **Polls Table Policies**
+- Users can view active public polls
+- Users can view their own polls regardless of visibility
+- Only poll creators can update/delete their polls
+
+#### **Poll Options Policies**
+- Anyone can view options for active polls
+- Only poll creators can manage their poll options
+
+#### **Votes Table Policies**
+- Users can view non-anonymous votes for active polls
+- Users can view their own votes
+- Authenticated users can vote on active, non-expired polls
+
+### Performance Optimizations
+
+#### **Indexes**
+```sql
+-- Performance indexes
+CREATE INDEX idx_polls_created_by ON public.polls(created_by);
+CREATE INDEX idx_polls_created_at ON public.polls(created_at DESC);
+CREATE INDEX idx_polls_is_active ON public.polls(is_active);
+CREATE INDEX idx_polls_expires_at ON public.polls(expires_at);
+CREATE INDEX idx_poll_options_poll_id ON public.poll_options(poll_id);
+CREATE INDEX idx_votes_poll_id ON public.votes(poll_id);
+CREATE INDEX idx_votes_user_id ON public.votes(user_id);
+```
+
+#### **Triggers**
+- **Auto-update timestamps**: Automatically updates `updated_at` fields
+- **Vote count maintenance**: Automatically increments/decrements vote counts on poll options
+
+### Migration Notes
+
+The schema includes:
+- **Backward Compatibility**: Designed to support future feature additions
+- **Data Integrity**: Foreign key constraints ensure referential integrity
+- **Scalability**: Optimized for performance with proper indexing
+- **Security**: Comprehensive RLS policies for data protection
+
+For the complete schema with all policies, triggers, and sample data, see: <mcfile name="schema.sql" path="database/schema.sql"></mcfile>
+
 ## 🔐 Authentication Architecture
 
 ### Client-Side Authentication

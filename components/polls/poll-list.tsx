@@ -27,6 +27,7 @@ export function PollList({
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'most-voted'>('newest');
   const [filterBy, setFilterBy] = useState<'all' | 'active' | 'closed'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   const { polls: hookPolls, isLoading, votePoll } = usePolls();
   const router = useRouter();
@@ -34,6 +35,9 @@ export function PollList({
   // Use external polls if provided, otherwise use hook polls
   const polls = externalPolls || hookPolls;
   const handleVote = externalOnVote || votePoll;
+
+  // Get unique categories from polls
+  const categories = Array.from(new Set(polls.map(poll => poll.pollCategory).filter(Boolean)));
 
   // Filter and sort polls
   const filteredPolls = polls
@@ -47,7 +51,10 @@ export function PollList({
                            (filterBy === 'active' && poll.isActive) ||
                            (filterBy === 'closed' && !poll.isActive);
 
-      return matchesSearch && matchesFilter;
+      // Category filter
+      const matchesCategory = categoryFilter === 'all' || poll.pollCategory === categoryFilter;
+
+      return matchesSearch && matchesFilter && matchesCategory;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -137,6 +144,20 @@ export function PollList({
                   <SelectItem value="closed">Closed</SelectItem>
                 </SelectContent>
               </Select>
+
+              <Select value={categoryFilter} onValueChange={(value: string) => setCategoryFilter(value)}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category} value={category} className="capitalize">
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
         </div>
@@ -146,12 +167,12 @@ export function PollList({
       {filteredPolls.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-500 mb-4">
-            {searchTerm || filterBy !== 'all' 
+            {searchTerm || filterBy !== 'all' || categoryFilter !== 'all'
               ? 'No polls match your search criteria' 
               : 'No polls available yet'
             }
           </p>
-          {showCreateButton && !searchTerm && filterBy === 'all' && (
+          {showCreateButton && !searchTerm && filterBy === 'all' && categoryFilter === 'all' && (
             <Button onClick={() => router.push('/polls/create')}>
               Create the First Poll
             </Button>
