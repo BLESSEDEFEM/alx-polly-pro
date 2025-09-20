@@ -1,11 +1,13 @@
 /**
  * @fileoverview Poll details page component
  * Displays detailed information about a specific poll including voting interface, statistics, and timeline
+ * Enhanced with improved error handling, loading states, and user feedback
  */
 
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -40,8 +42,25 @@ export default function PollDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const pollId = params.id as string;
+  
+  // State for enhanced user experience
+  const [shareSuccess, setShareSuccess] = useState(false);
+  const [navigationLoading, setNavigationLoading] = useState(false);
 
-  const { poll, isLoading, vote: votePoll } = usePoll(pollId);
+  const { poll, isLoading, vote: votePoll, refresh } = usePoll(pollId);
+
+  // Enhanced vote handler with better state management
+  const handleVote = async (pollId: string, optionIds: string[]) => {
+    try {
+      await votePoll(optionIds);
+      // Refresh poll data to show updated results
+      setTimeout(() => {
+        refresh();
+      }, 1000);
+    } catch (error) {
+      throw error; // Re-throw to let PollCard handle the error display
+    }
+  };
 
   if (isLoading) {
     return (
@@ -85,13 +104,15 @@ export default function PollDetailsPage() {
         <Button 
           variant="ghost" 
           onClick={() => {
+            setNavigationLoading(true);
             if (typeof window !== 'undefined') {
               router.back();
             }
           }}
+          disabled={navigationLoading}
           className="mb-4"
         >
-          ← Back
+          {navigationLoading ? '← Going Back...' : '← Back'}
         </Button>
       </div>
 
@@ -101,7 +122,7 @@ export default function PollDetailsPage() {
         <div className="lg:col-span-2">
           <PollCard
             poll={poll}
-            onVote={votePoll}
+            onVote={handleVote}
             showVoteButton={true}
             showResults={true}
           />
@@ -197,21 +218,32 @@ export default function PollDetailsPage() {
               <Button 
                 variant="outline" 
                 className="w-full"
-                onClick={() => {
-                  const url = window.location.href;
-                  navigator.clipboard.writeText(url);
-                  // You could add a toast notification here
+                onClick={async () => {
+                  try {
+                    const url = window.location.href;
+                    await navigator.clipboard.writeText(url);
+                    setShareSuccess(true);
+                    setTimeout(() => {
+                      setShareSuccess(false);
+                    }, 2000);
+                  } catch (error) {
+                    console.error('Failed to copy to clipboard:', error);
+                  }
                 }}
               >
-                Share Poll
+                {shareSuccess ? '✓ Link Copied!' : 'Share Poll'}
               </Button>
               
               <Button 
                 variant="outline" 
                 className="w-full"
-                onClick={() => router.push('/polls')}
+                onClick={() => {
+                  setNavigationLoading(true);
+                  router.push('/polls');
+                }}
+                disabled={navigationLoading}
               >
-                Browse More Polls
+                {navigationLoading ? 'Loading...' : 'Browse More Polls'}
               </Button>
             </CardContent>
           </Card>

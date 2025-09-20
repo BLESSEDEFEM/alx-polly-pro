@@ -24,6 +24,8 @@ export function PollCard({
 }: PollCardProps) {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [isVoting, setIsVoting] = useState(false);
+  const [voteError, setVoteError] = useState<string | null>(null);
+  const [voteSuccess, setVoteSuccess] = useState(false);
 
   const totalVotes = poll.options.reduce((sum, option) => sum + (option.votes || 0), 0);
 
@@ -42,12 +44,23 @@ export function PollCard({
   const handleVote = async () => {
     if (selectedOptions.length === 0 || !onVote) return;
 
+    // Clear previous states
+    setVoteError(null);
+    setVoteSuccess(false);
     setIsVoting(true);
+
     try {
       await onVote(poll.id, selectedOptions);
       setSelectedOptions([]);
+      setVoteSuccess(true);
+      
+      // Auto-hide success message after 3 seconds
+      setTimeout(() => {
+        setVoteSuccess(false);
+      }, 3000);
     } catch (error) {
       console.error('Voting failed:', error);
+      setVoteError(error instanceof Error ? error.message : 'Failed to cast vote. Please try again.');
     } finally {
       setIsVoting(false);
     }
@@ -148,14 +161,32 @@ export function PollCard({
           </p>
         )}
 
+        {/* Success Message */}
+        {voteSuccess && (
+          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-sm text-green-800 font-medium">
+              ✓ Vote cast successfully! Thank you for participating.
+            </p>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {voteError && (
+          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-800 font-medium">
+              ✗ {voteError}
+            </p>
+          </div>
+        )}
+
         <div className="flex gap-2 mt-4">
           {showVoteButton && poll.isActive && (
             <Button 
               onClick={handleVote}
-              disabled={selectedOptions.length === 0 || isVoting}
+              disabled={selectedOptions.length === 0 || isVoting || voteSuccess}
               className="flex-1"
             >
-              {isVoting ? 'Voting...' : 'Vote'}
+              {isVoting ? 'Casting Vote...' : voteSuccess ? 'Vote Cast!' : 'Cast Vote'}
             </Button>
           )}
           

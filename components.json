@@ -1,58 +1,22 @@
 {
-  // shadcn/ui components configuration for the Polly Pro application
-  // Defines component library settings, styling preferences, and path aliases
-  
-  // JSON schema for validation and IDE support
   "$schema": "https://ui.shadcn.com/schema.json",
-  
-  // UI style variant (new-york provides a modern, clean aesthetic)
   "style": "new-york",
-  
-  // Enable React Server Components support
   "rsc": true,
-  
-  // Use TypeScript JSX syntax (.tsx files)
   "tsx": true,
-  
-  // Tailwind CSS configuration
   "tailwind": {
-    // Path to Tailwind config file (empty means default location)
     "config": "",
-    
-    // Path to main CSS file containing Tailwind directives
     "css": "app/globals.css",
-    
-    // Base color palette for components (slate provides neutral grays)
     "baseColor": "slate",
-    
-    // Use CSS custom properties for theming (enables dark mode support)
     "cssVariables": true,
-    
-    // CSS class prefix for components (empty means no prefix)
     "prefix": ""
   },
-  
-  // Icon library to use for component icons (Lucide provides modern, consistent icons)
   "iconLibrary": "lucide",
-  
-  // Path aliases for cleaner imports throughout the application
   "aliases": {
-    // Main components directory
     "components": "@/components",
-    
-    // Utility functions directory
     "utils": "@/lib/utils",
-    
-    // UI components directory (shadcn/ui components)
     "ui": "@/components/ui",
-    
-    // Library/helper functions directory
     "lib": "@/lib",
-    
-    // Custom React hooks directory
     "hooks": "@/hooks"
   },
-  
-  // Component registries (empty means using default shadcn/ui registry)
   "registries": {}
 }
