@@ -142,7 +142,10 @@ export function usePolls() {
    */
   const votePoll = async (pollId: string, optionIds: string[]) => {
     try {
+      console.log('Voting on poll:', pollId, 'with options:', optionIds);
       const response = await pollsAPI.votePoll(pollId, optionIds);
+      console.log('Vote response:', response);
+      
       if (response.success) {
         setPolls(prev => prev.map(poll => {
           if (poll.id === pollId) {
@@ -158,7 +161,8 @@ export function usePolls() {
           return poll;
         }));
       } else {
-        throw new Error(response.error || 'Failed to cast vote');
+        console.error('Vote failed with response:', response);
+        throw new Error(response.error || response.message || 'Failed to cast vote');
       }
     } catch (error) {
       console.error('Failed to vote:', error);
@@ -250,6 +254,13 @@ export function usePoll(pollId: string) {
    * @private
    */
   const fetchPoll = async () => {
+    // Don't fetch if pollId is 'new' or invalid
+    if (!pollId || pollId === 'new') {
+      setPoll(null);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       const response = await pollsAPI.getPoll(pollId);
@@ -261,6 +272,7 @@ export function usePoll(pollId: string) {
       }
     } catch (error) {
       console.error('Failed to fetch poll:', error);
+      setPoll(null);
     } finally {
       setIsLoading(false);
     }

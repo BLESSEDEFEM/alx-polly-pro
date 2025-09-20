@@ -15,7 +15,10 @@ export async function POST(
   
   if (authError || !user) {
     return NextResponse.json(
-      { message: 'Authentication required' },
+      { 
+        success: false,
+        message: 'Authentication required' 
+      },
       { status: 401 }
     );
   }
@@ -23,7 +26,10 @@ export async function POST(
   // Validate input
   if (!optionIds || !Array.isArray(optionIds) || optionIds.length === 0) {
     return NextResponse.json(
-      { message: 'At least one option must be selected' },
+      { 
+        success: false,
+        message: 'At least one option must be selected' 
+      },
       { status: 400 }
     );
   }
@@ -36,33 +42,48 @@ export async function POST(
     .single();
 
   if (fetchError || !poll) {
-    return NextResponse.json({ message: 'Poll not found' }, { status: 404 });
+    return NextResponse.json({ 
+      success: false,
+      message: 'Poll not found' 
+    }, { status: 404 });
   }
 
   if (!poll.is_active) {
-    return NextResponse.json({ message: 'Poll is not active' }, { status: 400 });
+    return NextResponse.json({ 
+      success: false,
+      message: 'Poll is not active' 
+    }, { status: 400 });
   }
 
   if (poll.expires_at && new Date(poll.expires_at) < new Date()) {
-    return NextResponse.json({ message: 'Poll has expired' }, { status: 400 });
+    return NextResponse.json({ 
+      success: false,
+      message: 'Poll has expired' 
+    }, { status: 400 });
   }
 
-  // Increment votes for selected options using RPC function
+  // Insert votes into the votes table (triggers will handle vote count increment)
   for (const optionId of optionIds) {
-    const { error: updateError } = await supabase
-      .rpc('increment_vote_count', { 
+    const { error: insertError } = await supabase
+      .from('votes')
+      .insert({
+        poll_id: id,
         option_id: optionId,
-        poll_id: id 
+        user_id: user.id
       });
 
-    if (updateError) {
-      console.error('Error casting vote:', updateError);
+    if (insertError) {
+      console.error('Error casting vote:', insertError);
       return NextResponse.json({ 
+        success: false,
         message: 'Failed to cast vote', 
-        error: updateError.message 
+        error: insertError.message 
       }, { status: 500 });
     }
   }
 
-  return NextResponse.json({ message: 'Vote cast successfully' });
+  return NextResponse.json({ 
+    success: true,
+    message: 'Vote cast successfully' 
+  });
 }

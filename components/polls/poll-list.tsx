@@ -33,14 +33,14 @@ export function PollList({
   const router = useRouter();
 
   // Use external polls if provided, otherwise use hook polls
-  const polls = externalPolls || hookPolls;
+  const polls = externalPolls || hookPolls || [];
   const handleVote = externalOnVote || votePoll;
 
-  // Get unique categories from polls
-  const categories = Array.from(new Set(polls.map(poll => poll.pollCategory).filter(Boolean)));
+  // Get unique categories from polls (with null check)
+  const categories = Array.from(new Set((polls || []).map(poll => poll.pollCategory).filter(Boolean)));
 
-  // Filter and sort polls
-  const filteredPolls = polls
+  // Filter and sort polls (with null check)
+  const filteredPolls = (polls || [])
     .filter(poll => {
       // Search filter
       const matchesSearch = poll.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -72,7 +72,10 @@ export function PollList({
     });
 
   const handleViewDetails = (pollId: string) => {
-    router.push(`/polls/${pollId}`);
+    // Prevent multiple navigation attempts
+    if (typeof window !== 'undefined') {
+      router.push(`/polls/${pollId}`);
+    }
   };
 
   if (isLoading) {

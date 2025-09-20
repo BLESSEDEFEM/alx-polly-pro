@@ -25,7 +25,7 @@ export function PollCard({
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [isVoting, setIsVoting] = useState(false);
 
-  const totalVotes = poll.options.reduce((sum, option) => sum + option.votes, 0);
+  const totalVotes = poll.options.reduce((sum, option) => sum + (option.votes || 0), 0);
 
   const handleOptionSelect = (optionId: string) => {
     if (poll.allowMultipleVotes) {
@@ -54,7 +54,10 @@ export function PollCard({
   };
 
   const getVotePercentage = (votes: number) => {
-    return totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+    if (typeof votes !== 'number' || isNaN(votes) || totalVotes === 0) {
+      return 0;
+    }
+    return Math.round((votes / totalVotes) * 100);
   };
 
   return (
@@ -117,7 +120,7 @@ export function PollCard({
                     <span className="font-medium">{option.text}</span>
                     {showResults && (
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-600">{option.votes}</span>
+                        <span className="text-sm text-gray-600">{option.votes || 0}</span>
                         <span className="text-sm font-medium">{percentage}%</span>
                       </div>
                     )}

@@ -76,7 +76,7 @@ export default function PollDetailsPage() {
     );
   }
 
-  const totalVotes = poll.options.reduce((sum, option) => sum + option.votes, 0);
+  const totalVotes = poll.options.reduce((sum, option) => sum + (option.votes || 0), 0);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -84,7 +84,11 @@ export default function PollDetailsPage() {
       <div className="mb-6">
         <Button 
           variant="ghost" 
-          onClick={() => router.back()}
+          onClick={() => {
+            if (typeof window !== 'undefined') {
+              router.back();
+            }
+          }}
           className="mb-4"
         >
           ← Back

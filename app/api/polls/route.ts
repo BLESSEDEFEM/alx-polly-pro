@@ -41,6 +41,7 @@ export async function GET(request: Request) {
     expiresAt: poll.expires_at ? new Date(poll.expires_at) : undefined,
     allowMultipleVotes: poll.allow_multiple_votes,
     isAnonymous: poll.is_anonymous,
+    pollCategory: poll.poll_category,
   }));
 
   return NextResponse.json(polls);
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
   }
 
   const data = await request.json();
-  const { title, description, options, expiresAt, allowMultipleVotes, isAnonymous } = data;
+  const { title, description, options, expiresAt, allowMultipleVotes, isAnonymous, pollCategory } = data;
 
   // Validate required fields
   if (!title || !description || !options || !Array.isArray(options) || options.length < 2) {
@@ -80,6 +81,7 @@ export async function POST(request: Request) {
       expires_at: expiresAt,
       allow_multiple_votes: allowMultipleVotes,
       is_anonymous: isAnonymous,
+      poll_category: pollCategory || 'general',
     })
     .select()
     .single();
@@ -123,6 +125,7 @@ export async function POST(request: Request) {
     expiresAt: newPollData.expires_at ? new Date(newPollData.expires_at) : undefined,
     allowMultipleVotes: newPollData.allow_multiple_votes,
     isAnonymous: newPollData.is_anonymous,
+    pollCategory: newPollData.poll_category,
   };
 
   return NextResponse.json(newPoll, { status: 201 });

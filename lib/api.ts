@@ -74,7 +74,7 @@ class ApiClient {
 
       return {
         success: true,
-        data,
+        ...data, // Spread the response data to include message, etc. at the top level
       };
     } catch (error) {
       return {
