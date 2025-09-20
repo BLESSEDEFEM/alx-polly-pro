@@ -1,27 +1,72 @@
 {
+  // TypeScript configuration for the Polly Pro application
+  // Defines compiler options, module resolution, and project structure settings
+  
   "compilerOptions": {
+    // Target JavaScript version for compilation output
     "target": "ES2017",
+    
+    // Library definitions to include for type checking
     "lib": ["dom", "dom.iterable", "esnext"],
+    
+    // Allow JavaScript files to be compiled alongside TypeScript
     "allowJs": true,
+    
+    // Skip type checking of declaration files for faster compilation
     "skipLibCheck": true,
+    
+    // Enable all strict type checking options
     "strict": true,
+    
+    // Don't emit JavaScript files (Next.js handles compilation)
     "noEmit": true,
+    
+    // Enable interoperability between CommonJS and ES modules
     "esModuleInterop": true,
+    
+    // Module system to use (esnext for modern ES modules)
     "module": "esnext",
+    
+    // Module resolution strategy (bundler for modern bundlers like webpack)
     "moduleResolution": "bundler",
+    
+    // Allow importing JSON files as modules
     "resolveJsonModule": true,
+    
+    // Ensure each file can be safely transpiled without relying on other imports
     "isolatedModules": true,
+    
+    // JSX compilation mode (preserve for Next.js to handle)
     "jsx": "preserve",
+    
+    // Enable incremental compilation for faster subsequent builds
     "incremental": true,
+    
+    // TypeScript plugins configuration
     "plugins": [
       {
+        // Next.js TypeScript plugin for enhanced IDE support
         "name": "next"
       }
     ],
+    
+    // Path mapping for module resolution
     "paths": {
+      // Map @/* to project root for cleaner imports
       "@/*": ["./*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  
+  // Files and patterns to include in compilation
+  "include": [
+    "next-env.d.ts",      // Next.js environment type definitions
+    "**/*.ts",            // All TypeScript files
+    "**/*.tsx",           // All TypeScript React files
+    ".next/types/**/*.ts" // Next.js generated types
+  ],
+  
+  // Files and patterns to exclude from compilation
+  "exclude": [
+    "node_modules" // Exclude third-party dependencies
+  ]
 }

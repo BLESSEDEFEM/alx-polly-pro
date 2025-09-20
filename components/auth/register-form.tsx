@@ -1,71 +1,171 @@
+/**
+ * @fileoverview Enhanced register form component with improved UX and visual feedback
+ * Provides a complete registration form with validation, error handling, and user creation
+ */
+
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth } from '@/hooks/use-auth';
-import { validateEmail, validatePassword } from '@/lib/auth';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, Eye, EyeOff, CheckCircle2, AlertCircle, User, Mail, Lock, Shield } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/providers/auth-provider';
 
+/**
+ * Register form component props
+ */
 interface RegisterFormProps {
+  /** Optional callback function called after successful registration */
   onSuccess?: () => void;
+  /** Optional redirect URL after successful registration */
   redirectTo?: string;
+  /** Optional CSS class name for styling */
+  className?: string;
 }
 
-export function RegisterForm({ onSuccess, redirectTo = '/dashboard' }: RegisterFormProps) {
-  const [formData, setFormData] = useState({
+/**
+ * Form data interface for type safety
+ */
+interface RegisterFormData {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
+
+/**
+ * Form errors interface for validation feedback
+ */
+interface FormErrors {
+  name?: string;
+  email?: string;
+  password?: string;
+  confirmPassword?: string;
+  general?: string;
+}
+
+/**
+ * Password strength levels
+ */
+type PasswordStrength = 'weak' | 'medium' | 'strong';
+
+/**
+ * Enhanced register form component with improved UX
+ * 
+ * Features:
+ * - Real-time validation with visual feedback
+ * - Password strength indicator with visual cues
+ * - Enhanced loading states and micro-interactions
+ * - Improved error handling with contextual messages
+ * - Success states and smooth transitions
+ * - Responsive design with modern UI patterns
+ * 
+ * @param props - Component props
+ * @returns JSX element containing the enhanced registration form
+ */
+export function RegisterForm({ onSuccess, redirectTo = '/', className }: RegisterFormProps) {
+  const router = useRouter();
+  const { refreshSession } = useAuth();
+  
+  // Form state
+  const [formData, setFormData] = useState<RegisterFormData>({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
   });
+  
+  // UI state
+  const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<{
-    name?: string;
-    email?: string;
-    password?: string;
-    confirmPassword?: string;
-    general?: string;
-  }>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [touchedFields, setTouchedFields] = useState<Set<keyof RegisterFormData>>(new Set());
 
-  const { register } = useAuth();
-  const router = useRouter();
+  /**
+   * Calculate password strength
+   */
+  const getPasswordStrength = (password: string): PasswordStrength => {
+    if (password.length < 6) return 'weak';
+    
+    let score = 0;
+    if (password.length >= 8) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[a-z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+    
+    if (score >= 4) return 'strong';
+    if (score >= 2) return 'medium';
+    return 'weak';
+  };
 
-  const handleInputChange = (field: keyof typeof formData) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, [field]: e.target.value }));
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
+  /**
+   * Get password strength color and text
+   */
+  const getPasswordStrengthInfo = (strength: PasswordStrength) => {
+    switch (strength) {
+      case 'weak':
+        return { color: 'text-red-500', bg: 'bg-red-500', text: 'Weak' };
+      case 'medium':
+        return { color: 'text-yellow-500', bg: 'bg-yellow-500', text: 'Medium' };
+      case 'strong':
+        return { color: 'text-green-500', bg: 'bg-green-500', text: 'Strong' };
     }
   };
 
-  const validateForm = () => {
-    const newErrors: typeof errors = {};
+  /**
+   * Handle input changes with real-time validation clearing
+   */
+  const handleInputChange = (field: keyof RegisterFormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Mark field as touched
+    setTouchedFields(prev => new Set(prev).add(field));
+    
+    // Clear field-specific error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+    
+    // Clear general error when user makes any change
+    if (errors.general) {
+      setErrors(prev => ({ ...prev, general: undefined }));
+    }
+  };
+
+  /**
+   * Enhanced form validation with real-time feedback
+   */
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
 
     // Name validation
     if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
+      newErrors.name = 'Full name is required';
     } else if (formData.name.trim().length < 2) {
       newErrors.name = 'Name must be at least 2 characters long';
     }
 
     // Email validation
-    if (!formData.email) {
+    if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
-    } else if (!validateEmail(formData.email)) {
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
 
     // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else {
-      const passwordValidation = validatePassword(formData.password);
-      if (!passwordValidation.isValid) {
-        newErrors.password = passwordValidation.errors[0];
-      }
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters long';
     }
 
     // Confirm password validation
@@ -79,127 +179,355 @@ export function RegisterForm({ onSuccess, redirectTo = '/dashboard' }: RegisterF
     return Object.keys(newErrors).length === 0;
   };
 
+  /**
+   * Get field validation state for visual feedback
+   */
+  const getFieldState = (field: keyof RegisterFormData) => {
+    const isTouched = touchedFields.has(field);
+    const hasError = !!errors[field];
+    const hasValue = !!formData[field];
+    
+    if (hasError && isTouched) return 'error';
+    if (hasValue && isTouched && !hasError) return 'success';
+    return 'default';
+  };
+
+  /**
+   * Enhanced form submission with better UX
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) return;
+    // Mark all fields as touched for validation display
+    setTouchedFields(new Set(['name', 'email', 'password', 'confirmPassword']));
+    
+    // Clear any existing errors
+    setErrors({});
+    
+    // Validate form
+    if (!validateForm()) {
+      return;
+    }
 
     setIsLoading(true);
-    setErrors({});
 
     try {
-      await register(formData.name.trim(), formData.email, formData.password);
-      
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        router.push(redirectTo);
+      // Use our custom API endpoint for registration
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          password: formData.password,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        // Handle API errors with better UX
+        let errorMessage = result.message || 'An error occurred during registration';
+        
+        // Map common error messages to user-friendly ones
+        if (errorMessage.includes('User already registered')) {
+          errorMessage = 'An account with this email already exists. Please try logging in instead.';
+        } else if (errorMessage.includes('Password should be at least')) {
+          errorMessage = 'Password must be at least 6 characters long.';
+        } else if (errorMessage.includes('Invalid email')) {
+          errorMessage = 'Please enter a valid email address.';
+        }
+        
+        setErrors({ general: errorMessage });
+        return;
       }
+
+      // Success state with visual feedback
+      setIsSuccess(true);
+      
+      // Brief delay to show success state
+      setTimeout(async () => {
+        console.log('Registration successful:', result.user?.email);
+        
+        // Refresh the auth context to update the UI
+        await refreshSession();
+        
+        // Call success callback if provided
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          // Default redirect behavior
+          router.push(redirectTo);
+        }
+      }, 1500);
+
     } catch (error) {
-      setErrors({
-        general: error instanceof Error ? error.message : 'Registration failed. Please try again.',
+      console.error('Registration error:', error);
+      setErrors({ 
+        general: 'Network error. Please check your connection and try again.' 
       });
     } finally {
-      setIsLoading(false);
+      if (!isSuccess) {
+        setIsLoading(false);
+      }
     }
   };
 
+  // Success state UI
+  if (isSuccess) {
+    return (
+      <Card className={`w-full max-w-md mx-auto ${className || ''}`}>
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle2 className="w-8 h-8 text-green-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-green-800 mb-2">Registration Successful!</h3>
+            <p className="text-sm text-green-600 mb-2">Welcome to Polly Pro!</p>
+            <p className="text-xs text-muted-foreground">Redirecting you now...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const passwordStrength = formData.password ? getPasswordStrength(formData.password) : null;
+  const strengthInfo = passwordStrength ? getPasswordStrengthInfo(passwordStrength) : null;
+
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>Create Account</CardTitle>
-        <CardDescription>
-          Sign up to start creating and participating in polls
+    <Card className={`w-full max-w-md mx-auto transition-all duration-200 ${className || ''}`}>
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-2xl font-bold text-center">Create Account</CardTitle>
+        <CardDescription className="text-center">
+          Join Polly Pro to create and participate in polls
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
-            <Input
-              id="name"
-              type="text"
-              placeholder="Enter your full name"
-              value={formData.name}
-              onChange={handleInputChange('name')}
-              disabled={isLoading}
-              className={errors.name ? 'border-red-500' : ''}
-            />
-            {errors.name && (
-              <p className="text-sm text-red-500">{errors.name}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="Enter your email"
-              value={formData.email}
-              onChange={handleInputChange('email')}
-              disabled={isLoading}
-              className={errors.email ? 'border-red-500' : ''}
-            />
-            {errors.email && (
-              <p className="text-sm text-red-500">{errors.email}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Create a password"
-              value={formData.password}
-              onChange={handleInputChange('password')}
-              disabled={isLoading}
-              className={errors.password ? 'border-red-500' : ''}
-            />
-            {errors.password && (
-              <p className="text-sm text-red-500">{errors.password}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              placeholder="Confirm your password"
-              value={formData.confirmPassword}
-              onChange={handleInputChange('confirmPassword')}
-              disabled={isLoading}
-              className={errors.confirmPassword ? 'border-red-500' : ''}
-            />
-            {errors.confirmPassword && (
-              <p className="text-sm text-red-500">{errors.confirmPassword}</p>
-            )}
-          </div>
-
+      
+      <form onSubmit={handleSubmit}>
+        <CardContent className="space-y-4">
+          {/* General Error Alert */}
           {errors.general && (
-            <div className="p-3 text-sm text-red-500 bg-red-50 border border-red-200 rounded-md">
-              {errors.general}
-            </div>
+            <Alert variant="destructive" className="animate-in slide-in-from-top-2 duration-300">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{errors.general}</AlertDescription>
+            </Alert>
           )}
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Creating account...' : 'Create Account'}
-          </Button>
-        </form>
+          {/* Name Field */}
+          <div className="space-y-2">
+            <Label htmlFor="name" className="text-sm font-medium">
+              Full Name
+            </Label>
+            <div className="relative">
+              <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="name"
+                type="text"
+                placeholder="Enter your full name"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                className={`pl-10 transition-all duration-200 ${
+                  getFieldState('name') === 'error' 
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                    : getFieldState('name') === 'success'
+                    ? 'border-green-500 focus:border-green-500 focus:ring-green-500'
+                    : ''
+                }`}
+                disabled={isLoading}
+                autoComplete="name"
+              />
+              {getFieldState('name') === 'success' && (
+                <CheckCircle2 className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+              )}
+            </div>
+            {errors.name && (
+              <p className="text-sm text-red-600 animate-in slide-in-from-top-1 duration-200">
+                {errors.name}
+              </p>
+            )}
+          </div>
 
-        <div className="mt-4 text-center text-sm">
-          <span className="text-gray-600">Already have an account? </span>
-          <Button
-            variant="link"
-            className="p-0 h-auto font-normal"
-            onClick={() => router.push('/auth/login')}
+          {/* Email Field */}
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-sm font-medium">
+              Email Address
+            </Label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                className={`pl-10 transition-all duration-200 ${
+                  getFieldState('email') === 'error' 
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                    : getFieldState('email') === 'success'
+                    ? 'border-green-500 focus:border-green-500 focus:ring-green-500'
+                    : ''
+                }`}
+                disabled={isLoading}
+                autoComplete="email"
+              />
+              {getFieldState('email') === 'success' && (
+                <CheckCircle2 className="absolute right-3 top-3 h-4 w-4 text-green-500" />
+              )}
+            </div>
+            {errors.email && (
+              <p className="text-sm text-red-600 animate-in slide-in-from-top-1 duration-200">
+                {errors.email}
+              </p>
+            )}
+          </div>
+
+          {/* Password Field */}
+          <div className="space-y-2">
+            <Label htmlFor="password" className="text-sm font-medium">
+              Password
+            </Label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Create a password"
+                value={formData.password}
+                onChange={(e) => handleInputChange('password', e.target.value)}
+                className={`pl-10 pr-10 transition-all duration-200 ${
+                  getFieldState('password') === 'error' 
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                    : getFieldState('password') === 'success'
+                    ? 'border-green-500 focus:border-green-500 focus:ring-green-500'
+                    : ''
+                }`}
+                disabled={isLoading}
+                autoComplete="new-password"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowPassword(!showPassword)}
+                disabled={isLoading}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            </div>
+            
+            {/* Password Strength Indicator */}
+            {formData.password && strengthInfo && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Password strength:</span>
+                  <span className={`text-xs font-medium ${strengthInfo.color}`}>
+                    {strengthInfo.text}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                  <div 
+                    className={`h-1.5 rounded-full transition-all duration-300 ${strengthInfo.bg}`}
+                    style={{ 
+                      width: passwordStrength === 'weak' ? '33%' : 
+                             passwordStrength === 'medium' ? '66%' : '100%' 
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            
+            {errors.password && (
+              <p className="text-sm text-red-600 animate-in slide-in-from-top-1 duration-200">
+                {errors.password}
+              </p>
+            )}
+          </div>
+
+          {/* Confirm Password Field */}
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword" className="text-sm font-medium">
+              Confirm Password
+            </Label>
+            <div className="relative">
+              <Shield className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="confirmPassword"
+                type={showConfirmPassword ? 'text' : 'password'}
+                placeholder="Confirm your password"
+                value={formData.confirmPassword}
+                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                className={`pl-10 pr-10 transition-all duration-200 ${
+                  getFieldState('confirmPassword') === 'error' 
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                    : getFieldState('confirmPassword') === 'success'
+                    ? 'border-green-500 focus:border-green-500 focus:ring-green-500'
+                    : ''
+                }`}
+                disabled={isLoading}
+                autoComplete="new-password"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                disabled={isLoading}
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+              {getFieldState('confirmPassword') === 'success' && (
+                <CheckCircle2 className="absolute right-10 top-3 h-4 w-4 text-green-500" />
+              )}
+            </div>
+            {errors.confirmPassword && (
+              <p className="text-sm text-red-600 animate-in slide-in-from-top-1 duration-200">
+                {errors.confirmPassword}
+              </p>
+            )}
+          </div>
+        </CardContent>
+
+        <CardFooter className="flex flex-col space-y-4">
+          {/* Submit Button */}
+          <Button 
+            type="submit" 
+            className="w-full transition-all duration-200 hover:scale-[1.02]" 
+            disabled={isLoading}
           >
-            Sign in
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating account...
+              </>
+            ) : (
+              'Create Account'
+            )}
           </Button>
-        </div>
-      </CardContent>
+
+          {/* Login Link */}
+          <p className="text-center text-sm text-muted-foreground">
+            Already have an account?{' '}
+            <Link 
+              href="/auth/login" 
+              className="text-primary hover:underline font-medium transition-colors duration-200"
+            >
+              Sign in here
+            </Link>
+          </p>
+        </CardFooter>
+      </form>
     </Card>
   );
 }

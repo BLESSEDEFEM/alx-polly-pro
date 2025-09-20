@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Poll details page component
+ * Displays detailed information about a specific poll including voting interface, statistics, and timeline
+ */
+
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -8,12 +13,35 @@ import { PollCard } from '@/components/polls/poll-card';
 import { usePoll } from '@/hooks/use-polls';
 import { formatDistanceToNow, format } from 'date-fns';
 
+/**
+ * Poll details page component
+ * 
+ * A dynamic page that displays comprehensive information about a specific poll.
+ * Features a two-column layout with the main poll card and detailed statistics sidebar.
+ * 
+ * The page includes:
+ * - Loading state with skeleton animation
+ * - Error handling with fallback UI
+ * - Main poll card with voting interface
+ * - Statistics sidebar with vote counts, poll type, and status
+ * - Timeline information showing creation, expiration, and update dates
+ * - Action buttons for sharing and navigation
+ * 
+ * @returns JSX element containing the poll details page layout
+ * 
+ * @example
+ * ```tsx
+ * // This page is automatically rendered at "/polls/[id]"
+ * // where [id] is the dynamic poll identifier
+ * // Users can view poll details, vote, and see real-time results
+ * ```
+ */
 export default function PollDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const pollId = params.id as string;
 
-  const { poll, isLoading, error, votePoll } = usePoll(pollId);
+  const { poll, isLoading, vote: votePoll } = usePoll(pollId);
 
   if (isLoading) {
     return (
@@ -27,13 +55,13 @@ export default function PollDetailsPage() {
     );
   }
 
-  if (error || !poll) {
+  if (!poll) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center py-12">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Poll Not Found</h1>
           <p className="text-gray-600 mb-6">
-            {error || 'The poll you\'re looking for doesn\'t exist or has been removed.'}
+            'The poll you\'re looking for doesn\'t exist or has been removed.'
           </p>
           <div className="space-x-4">
             <Button onClick={() => router.back()}>

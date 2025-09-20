@@ -1,21 +1,51 @@
+/**
+ * @fileoverview Home page component for the Polly Pro application
+ * Landing page that introduces the platform and encourages user engagement
+ */
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
+/**
+ * Home page component
+ * 
+ * The main landing page for Polly Pro that serves as the entry point for new users.
+ * Features a hero section, benefits overview, and call-to-action sections to guide
+ * users toward creating accounts and using the polling platform.
+ * 
+ * The page is structured with:
+ * - Hero section with main value proposition and primary CTAs
+ * - Features section highlighting key benefits with icons and descriptions
+ * - Final CTA section encouraging user registration
+ * 
+ * @returns JSX element containing the complete home page layout
+ * 
+ * @example
+ * ```tsx
+ * // This page is automatically rendered at the root route "/"
+ * // Users visiting the site will see this as the main landing page
+ * ```
+ */
 export default function HomePage() {
   return (
     <div className="min-h-screen">
-      {/* Hero Section */}
+      {/* Hero Section - Main value proposition and primary call-to-action */}
       <section className="bg-gradient-to-br from-blue-50 to-indigo-100 py-20">
         <div className="container mx-auto px-4 text-center">
+          {/* Main headline with brand emphasis */}
           <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
             Create Engaging
             <span className="text-blue-600"> Polls</span>
           </h1>
+          
+          {/* Value proposition subtitle */}
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
             Gather valuable insights from your audience with our easy-to-use polling platform. 
             Create, share, and analyze polls in minutes.
           </p>
+          
+          {/* Primary action buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" asChild>
               <Link href="/polls/create">Create Your First Poll</Link>
@@ -27,9 +57,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* Features Section - Key benefits and platform capabilities */}
       <section className="py-20">
         <div className="container mx-auto px-4">
+          {/* Section header */}
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
               Why Choose Polly Pro?
@@ -39,9 +70,12 @@ export default function HomePage() {
             </p>
           </div>
 
+          {/* Feature cards grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Quick & Easy Feature */}
             <Card>
               <CardHeader>
+                {/* Lightning bolt icon for speed/efficiency */}
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -54,8 +88,10 @@ export default function HomePage() {
               </CardHeader>
             </Card>
 
+            {/* Real-time Results Feature */}
             <Card>
               <CardHeader>
+                {/* Bar chart icon for analytics/results */}
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -68,8 +104,10 @@ export default function HomePage() {
               </CardHeader>
             </Card>
 
+            {/* Easy Sharing Feature */}
             <Card>
               <CardHeader>
+                {/* Share/network icon for social sharing */}
                 <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
@@ -85,15 +123,20 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* Call-to-Action Section - Final conversion push */}
       <section className="bg-gray-50 py-20">
         <div className="container mx-auto px-4 text-center">
+          {/* CTA headline */}
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
             Ready to Get Started?
           </h2>
+          
+          {/* Social proof and encouragement */}
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
             Join thousands of users who trust Polly Pro for their polling needs.
           </p>
+          
+          {/* Final action buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" asChild>
               <Link href="/auth/register">Sign Up Free</Link>

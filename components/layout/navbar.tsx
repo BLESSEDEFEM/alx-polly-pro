@@ -5,15 +5,16 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
+import { supabase } from '@/lib/supabase';
 
 export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     router.push('/');
   };
 
@@ -24,7 +25,6 @@ export function Navbar() {
   const navLinks = [
     { href: '/polls', label: 'Polls', requiresAuth: false },
     { href: '/polls/create', label: 'Create Poll', requiresAuth: true },
-    { href: '/dashboard', label: 'Dashboard', requiresAuth: true },
   ];
 
   return (
@@ -42,7 +42,7 @@ export function Navbar() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             {navLinks.map((link) => {
-              if (link.requiresAuth && !isAuthenticated) return null;
+              if (link.requiresAuth && !user) return null;
               
               return (
                 <Link
@@ -62,10 +62,10 @@ export function Navbar() {
 
           {/* Desktop Auth Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            {isAuthenticated ? (
+            {user ? (
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-gray-600">
-                  Welcome, {user?.name}
+                  Welcome, {user?.user_metadata.full_name}
                 </span>
                 <Button variant="outline" size="sm" onClick={handleLogout}>
                   Sign Out
@@ -128,7 +128,7 @@ export function Navbar() {
           <div className="md:hidden border-t border-gray-200 py-4">
             <div className="space-y-4">
               {navLinks.map((link) => {
-                if (link.requiresAuth && !isAuthenticated) return null;
+                if (link.requiresAuth && !user) return null;
                 
                 return (
                   <Link
@@ -145,10 +145,10 @@ export function Navbar() {
               })}
               
               <div className="pt-4 border-t border-gray-200">
-                {isAuthenticated ? (
+                {user ? (
                   <div className="space-y-2">
                     <p className="text-sm text-gray-600">
-                      Welcome, {user?.name}
+                      Welcome, {user?.user_metadata.full_name}
                     </p>
                     <Button
                       variant="outline"

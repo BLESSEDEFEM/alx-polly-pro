@@ -1,0 +1,224 @@
+-- Polly Pro Database Schema
+-- This file contains the SQL schema for the Polly Pro application
+-- Run this in your Supabase SQL editor to create the required tables
+
+-- Enable Row Level Security (RLS) for all tables
+-- This ensures users can only access data they're authorized to see
+
+-- ============================================================================
+-- POLLS TABLE
+-- ============================================================================
+
+-- Create polls table
+CREATE TABLE IF NOT EXISTS public.polls (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    created_by UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    allow_multiple_votes BOOLEAN DEFAULT false NOT NULL,
+    is_anonymous BOOLEAN DEFAULT false NOT NULL,
+    is_active BOOLEAN DEFAULT true NOT NULL
+);
+
+-- Enable RLS on polls table
+ALTER TABLE public.polls ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for polls table
+-- Allow users to read all active polls
+CREATE POLICY "Anyone can view active polls" ON public.polls
+    FOR SELECT USING (is_active = true);
+
+-- Allow authenticated users to create polls
+CREATE POLICY "Authenticated users can create polls" ON public.polls
+    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- Allow poll creators to update their own polls
+CREATE POLICY "Users can update their own polls" ON public.polls
+    FOR UPDATE USING (auth.uid() = created_by);
+
+-- Allow poll creators to delete their own polls
+CREATE POLICY "Users can delete their own polls" ON public.polls
+    FOR DELETE USING (auth.uid() = created_by);
+
+-- ============================================================================
+-- POLL OPTIONS TABLE
+-- ============================================================================
+
+-- Create poll_options table
+CREATE TABLE IF NOT EXISTS public.poll_options (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    poll_id UUID REFERENCES public.polls(id) ON DELETE CASCADE NOT NULL,
+    text TEXT NOT NULL,
+    vote_count INTEGER DEFAULT 0 NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+-- Enable RLS on poll_options table
+ALTER TABLE public.poll_options ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for poll_options table
+-- Allow users to read options for active polls
+CREATE POLICY "Anyone can view poll options" ON public.poll_options
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.polls 
+            WHERE polls.id = poll_options.poll_id 
+            AND polls.is_active = true
+        )
+    );
+
+-- Allow poll creators to manage their poll options
+CREATE POLICY "Poll creators can manage options" ON public.poll_options
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.polls 
+            WHERE polls.id = poll_options.poll_id 
+            AND polls.created_by = auth.uid()
+        )
+    );
+
+-- ============================================================================
+-- VOTES TABLE
+-- ============================================================================
+
+-- Create votes table
+CREATE TABLE IF NOT EXISTS public.votes (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    poll_id UUID REFERENCES public.polls(id) ON DELETE CASCADE NOT NULL,
+    option_id UUID REFERENCES public.poll_options(id) ON DELETE CASCADE NOT NULL,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    
+    -- Ensure unique votes per user per poll (for single-vote polls)
+    UNIQUE(poll_id, user_id, option_id)
+);
+
+-- Enable RLS on votes table
+ALTER TABLE public.votes ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for votes table
+-- Allow users to view votes for active polls (if not anonymous)
+CREATE POLICY "Users can view non-anonymous votes" ON public.votes
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.polls 
+            WHERE polls.id = votes.poll_id 
+            AND polls.is_active = true 
+            AND polls.is_anonymous = false
+        )
+    );
+
+-- Allow authenticated users to create votes
+CREATE POLICY "Authenticated users can vote" ON public.votes
+    FOR INSERT WITH CHECK (
+        auth.role() = 'authenticated' 
+        AND auth.uid() = user_id
+        AND EXISTS (
+            SELECT 1 FROM public.polls 
+            WHERE polls.id = poll_id 
+            AND polls.is_active = true
+            AND (polls.expires_at IS NULL OR polls.expires_at > NOW())
+        )
+    );
+
+-- Allow users to view their own votes
+CREATE POLICY "Users can view their own votes" ON public.votes
+    FOR SELECT USING (auth.uid() = user_id);
+
+-- ============================================================================
+-- INDEXES FOR PERFORMANCE
+-- ============================================================================
+
+-- Create indexes for better query performance
+CREATE INDEX IF NOT EXISTS idx_polls_created_by ON public.polls(created_by);
+CREATE INDEX IF NOT EXISTS idx_polls_created_at ON public.polls(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_polls_is_active ON public.polls(is_active);
+CREATE INDEX IF NOT EXISTS idx_polls_expires_at ON public.polls(expires_at);
+
+CREATE INDEX IF NOT EXISTS idx_poll_options_poll_id ON public.poll_options(poll_id);
+CREATE INDEX IF NOT EXISTS idx_poll_options_vote_count ON public.poll_options(vote_count DESC);
+
+CREATE INDEX IF NOT EXISTS idx_votes_poll_id ON public.votes(poll_id);
+CREATE INDEX IF NOT EXISTS idx_votes_option_id ON public.votes(option_id);
+CREATE INDEX IF NOT EXISTS idx_votes_user_id ON public.votes(user_id);
+CREATE INDEX IF NOT EXISTS idx_votes_created_at ON public.votes(created_at DESC);
+
+-- ============================================================================
+-- FUNCTIONS AND TRIGGERS
+-- ============================================================================
+
+-- Function to update the updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Create triggers to automatically update updated_at timestamps
+CREATE TRIGGER update_polls_updated_at 
+    BEFORE UPDATE ON public.polls 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_poll_options_updated_at 
+    BEFORE UPDATE ON public.poll_options 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Function to increment vote count when a vote is cast
+CREATE OR REPLACE FUNCTION increment_vote_count()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE public.poll_options 
+    SET vote_count = vote_count + 1 
+    WHERE id = NEW.option_id;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Function to decrement vote count when a vote is removed
+CREATE OR REPLACE FUNCTION decrement_vote_count()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE public.poll_options 
+    SET vote_count = vote_count - 1 
+    WHERE id = OLD.option_id;
+    RETURN OLD;
+END;
+$$ language 'plpgsql';
+
+-- Create triggers to automatically update vote counts
+CREATE TRIGGER increment_vote_count_trigger
+    AFTER INSERT ON public.votes
+    FOR EACH ROW EXECUTE FUNCTION increment_vote_count();
+
+CREATE TRIGGER decrement_vote_count_trigger
+    AFTER DELETE ON public.votes
+    FOR EACH ROW EXECUTE FUNCTION decrement_vote_count();
+
+-- ============================================================================
+-- SAMPLE DATA (OPTIONAL)
+-- ============================================================================
+
+-- Insert sample polls for testing (uncomment if needed)
+/*
+INSERT INTO public.polls (title, description, created_by, allow_multiple_votes, is_anonymous) VALUES
+('What is your favorite programming language?', 'Choose your preferred programming language for web development', 
+ (SELECT id FROM auth.users LIMIT 1), false, false),
+('Best time for team meetings?', 'Help us decide the optimal time for our weekly team meetings', 
+ (SELECT id FROM auth.users LIMIT 1), false, false);
+
+-- Insert sample poll options
+INSERT INTO public.poll_options (poll_id, text) VALUES
+((SELECT id FROM public.polls WHERE title = 'What is your favorite programming language?' LIMIT 1), 'JavaScript'),
+((SELECT id FROM public.polls WHERE title = 'What is your favorite programming language?' LIMIT 1), 'TypeScript'),
+((SELECT id FROM public.polls WHERE title = 'What is your favorite programming language?' LIMIT 1), 'Python'),
+((SELECT id FROM public.polls WHERE title = 'What is your favorite programming language?' LIMIT 1), 'Go'),
+((SELECT id FROM public.polls WHERE title = 'Best time for team meetings?' LIMIT 1), '9:00 AM'),
+((SELECT id FROM public.polls WHERE title = 'Best time for team meetings?' LIMIT 1), '2:00 PM'),
+((SELECT id FROM public.polls WHERE title = 'Best time for team meetings?' LIMIT 1), '4:00 PM');
+*/

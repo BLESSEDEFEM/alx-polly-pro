@@ -28,7 +28,7 @@ export function PollList({
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'most-voted'>('newest');
   const [filterBy, setFilterBy] = useState<'all' | 'active' | 'closed'>('all');
 
-  const { polls: hookPolls, isLoading, error, votePoll } = usePolls();
+  const { polls: hookPolls, isLoading, votePoll } = usePolls();
   const router = useRouter();
 
   // Use external polls if provided, otherwise use hook polls
@@ -80,16 +80,7 @@ export function PollList({
     );
   }
 
-  if (error) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-red-500 mb-4">{error}</p>
-        <Button onClick={() => window.location.reload()}>
-          Try Again
-        </Button>
-      </div>
-    );
-  }
+  
 
   return (
     <div className="space-y-6">

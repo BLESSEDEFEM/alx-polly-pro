@@ -1,153 +1,343 @@
+/**
+ * @fileoverview Polling hooks for managing poll data and operations
+ * Provides hooks for fetching polls, creating polls, voting, and managing poll state
+ */
+
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Poll, CreatePollFormData, Vote } from '@/types';
+import { Poll, PollOption, CreatePollData } from '@/types';
+import { pollsAPI } from '@/lib/api';
 
+/**
+ * Hook for managing multiple polls
+ * 
+ * Provides functionality to fetch, create, and manage a collection of polls.
+ * Handles loading states and error management for poll operations.
+ * 
+ * @returns Object containing polls array, loading state, and poll management functions
+ * 
+ * @example
+ * ```tsx
+ * function PollsList() {
+ *   const { polls, isLoading, createPoll, refreshPolls } = usePolls();
+ *   
+ *   if (isLoading) {
+ *     return <div>Loading polls...</div>;
+ *   }
+ *   
+ *   return (
+ *     <div>
+ *       {polls.map(poll => (
+ *         <PollCard key={poll.id} poll={poll} />
+ *       ))}
+ *       <button onClick={() => createPoll(newPollData)}>
+ *         Create Poll
+ *       </button>
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
 export function usePolls() {
   const [polls, setPolls] = useState<Poll[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchPolls = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      // TODO: Implement actual API call
-      // const response = await fetch('/api/polls');
-      // const data = await response.json();
-      
-      // Mock data for now
-      const mockPolls: Poll[] = [
-        {
-          id: '1',
-          title: 'What\'s your favorite programming language?',
-          description: 'Help us understand the community preferences',
-          options: [
-            { id: '1', text: 'JavaScript', votes: 45, pollId: '1' },
-            { id: '2', text: 'Python', votes: 32, pollId: '1' },
-            { id: '3', text: 'TypeScript', votes: 28, pollId: '1' },
-            { id: '4', text: 'Go', votes: 15, pollId: '1' },
-          ],
-          createdBy: 'user1',
-          createdAt: new Date('2024-01-15'),
-          updatedAt: new Date('2024-01-15'),
-          isActive: true,
-          allowMultipleVotes: false,
-          isAnonymous: false,
-        },
-        {
-          id: '2',
-          title: 'Best time for team meetings?',
-          description: 'Let\'s find a time that works for everyone',
-          options: [
-            { id: '5', text: '9:00 AM', votes: 12, pollId: '2' },
-            { id: '6', text: '2:00 PM', votes: 18, pollId: '2' },
-            { id: '7', text: '4:00 PM', votes: 8, pollId: '2' },
-          ],
-          createdBy: 'user2',
-          createdAt: new Date('2024-01-14'),
-          updatedAt: new Date('2024-01-14'),
-          isActive: true,
-          allowMultipleVotes: true,
-          isAnonymous: true,
-        },
-      ];
-      
-      setPolls(mockPolls);
-    } catch (err) {
-      setError('Failed to fetch polls');
-      console.error('Error fetching polls:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const createPoll = async (pollData: CreatePollFormData) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      // TODO: Implement actual API call
-      console.log('Creating poll:', pollData);
-      
-      // Mock successful creation
-      const newPoll: Poll = {
-        id: Date.now().toString(),
-        title: pollData.title,
-        description: pollData.description,
-        options: pollData.options.map((text, index) => ({
-          id: `${Date.now()}-${index}`,
-          text,
-          votes: 0,
-          pollId: Date.now().toString(),
-        })),
-        createdBy: 'current-user',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        expiresAt: pollData.expiresAt,
-        isActive: true,
-        allowMultipleVotes: pollData.allowMultipleVotes,
-        isAnonymous: pollData.isAnonymous,
-      };
-      
-      setPolls(prev => [newPoll, ...prev]);
-      return newPoll;
-    } catch (err) {
-      setError('Failed to create poll');
-      console.error('Error creating poll:', err);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const votePoll = async (pollId: string, optionIds: string[]) => {
-    setError(null);
-    try {
-      // TODO: Implement actual API call
-      console.log('Voting on poll:', { pollId, optionIds });
-      
-      // Mock vote update
-      setPolls(prev => prev.map(poll => {
-        if (poll.id === pollId) {
-          return {
-            ...poll,
-            options: poll.options.map(option => ({
-              ...option,
-              votes: optionIds.includes(option.id) ? option.votes + 1 : option.votes,
-            })),
-          };
-        }
-        return poll;
-      }));
-    } catch (err) {
-      setError('Failed to vote');
-      console.error('Error voting:', err);
-      throw err;
-    }
-  };
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetchPolls();
   }, []);
 
+  /**
+   * Fetches all polls from the API
+   * 
+   * Retrieves the complete list of polls and updates the local state.
+   * Currently uses mock data - should be replaced with actual API calls.
+   * 
+   * @private
+   */
+  const fetchPolls = async () => {
+    try {
+      setIsLoading(true);
+      const response = await pollsAPI.getPolls();
+      if (response.success) {
+        setPolls(response.data);
+      } else {
+        console.error('Failed to fetch polls:', response.error);
+      }
+    } catch (error) {
+      console.error('Failed to fetch polls:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Creates a new poll
+   * 
+   * Submits poll data to create a new poll and adds it to the local state.
+   * Currently uses mock implementation - should be replaced with actual API calls.
+   * 
+   * @param pollData - Data for creating the new poll
+   * @returns Promise that resolves when poll is created
+   * @throws Error if poll creation fails
+   * 
+   * @example
+   * ```tsx
+   * const { createPoll } = usePolls();
+   * 
+   * const handleCreatePoll = async () => {
+   *   try {
+   *     await createPoll({
+   *       title: 'Best Framework',
+   *       description: 'Which framework do you prefer?',
+   *       options: ['React', 'Vue', 'Angular']
+   *     });
+   *     // Poll created successfully
+   *   } catch (error) {
+   *     console.error('Failed to create poll:', error);
+   *   }
+   * };
+   * ```
+   */
+  const createPoll = async (pollData: CreatePollData): Promise<Poll> => {
+    try {
+      const response = await pollsAPI.createPoll(pollData);
+      if (response.success) {
+        const newPoll = response.data;
+        setPolls(prev => [newPoll, ...prev]);
+        return newPoll;
+      } else {
+        throw new Error(response.error || 'Failed to create poll');
+      }
+    } catch (error) {
+      console.error('Failed to create poll:', error);
+      throw error;
+    }
+  };
+
+  /**
+   * Casts a vote for a poll option
+   * 
+   * Submits a vote for the specified option and updates the local poll state.
+   * Currently uses mock implementation - should be replaced with actual API calls.
+   * 
+   * @param pollId - ID of the poll to vote on
+   * @param optionId - ID of the option to vote for
+   * @returns Promise that resolves when vote is cast
+   * @throws Error if voting fails
+   * 
+   * @example
+   * ```tsx
+   * const { votePoll } = usePolls();
+   * 
+   * const handleVote = async (pollId: string, optionId: string) => {
+   *   try {
+   *     await votePoll(pollId, optionId);
+   *     // Vote cast successfully
+   *   } catch (error) {
+   *     console.error('Failed to vote:', error);
+   *   }
+   * };
+   * ```
+   */
+  const votePoll = async (pollId: string, optionIds: string[]) => {
+    try {
+      const response = await pollsAPI.votePoll(pollId, optionIds);
+      if (response.success) {
+        setPolls(prev => prev.map(poll => {
+          if (poll.id === pollId) {
+            return {
+              ...poll,
+              options: poll.options.map(option => 
+                optionIds.includes(option.id)
+                  ? { ...option, votes: option.votes + 1 }
+                  : option
+              ),
+            };
+          }
+          return poll;
+        }));
+      } else {
+        throw new Error(response.error || 'Failed to cast vote');
+      }
+    } catch (error) {
+      console.error('Failed to vote:', error);
+      throw error;
+    }
+  };
+
+  /**
+   * Refreshes the polls list
+   * 
+   * Re-fetches all polls from the API to ensure data is up-to-date.
+   * 
+   * @example
+   * ```tsx
+   * const { refreshPolls } = usePolls();
+   * 
+   * const handleRefresh = () => {
+   *   refreshPolls();
+   * };
+   * ```
+   */
+  const refreshPolls = () => {
+    fetchPolls();
+  };
+
   return {
     polls,
     isLoading,
-    error,
-    fetchPolls,
     createPoll,
     votePoll,
+    refreshPolls,
   };
 }
 
+/**
+ * Hook for managing a single poll
+ * 
+ * Provides functionality to fetch and manage a specific poll by ID.
+ * Handles loading states and provides voting functionality for the poll.
+ * 
+ * @param pollId - ID of the poll to manage
+ * @returns Object containing poll data, loading state, and poll operations
+ * 
+ * @example
+ * ```tsx
+ * function PollDetail({ pollId }: { pollId: string }) {
+ *   const { poll, isLoading, vote } = usePoll(pollId);
+ *   
+ *   if (isLoading) {
+ *     return <div>Loading poll...</div>;
+ *   }
+ *   
+ *   if (!poll) {
+ *     return <div>Poll not found</div>;
+ *   }
+ *   
+ *   return (
+ *     <div>
+ *       <h2>{poll.title}</h2>
+ *       {poll.options.map(option => (
+ *         <button 
+ *           key={option.id}
+ *           onClick={() => vote(option.id)}
+ *         >
+ *           {option.text} ({option.votes} votes)
+ *         </button>
+ *       ))}
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
 export function usePoll(pollId: string) {
-  const { polls, isLoading, error, votePoll } = usePolls();
-  const poll = polls.find(p => p.id === pollId);
+  const [poll, setPoll] = useState<Poll | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (pollId) {
+      fetchPoll();
+    }
+  }, [pollId]);
+
+  /**
+   * Fetches a specific poll by ID
+   * 
+   * Retrieves poll data from the API and updates the local state.
+   * Currently uses mock data - should be replaced with actual API calls.
+   * 
+   * @private
+   */
+  const fetchPoll = async () => {
+    try {
+      setIsLoading(true);
+      const response = await pollsAPI.getPoll(pollId);
+      if (response.success) {
+        setPoll(response.data);
+      } else {
+        console.error('Failed to fetch poll:', response.error);
+        setPoll(null); // Set poll to null if fetching fails
+      }
+    } catch (error) {
+      console.error('Failed to fetch poll:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Casts a vote for an option in this poll
+   * 
+   * Submits a vote for the specified option and updates the local poll state.
+   * Currently uses mock implementation - should be replaced with actual API calls.
+   * 
+   * @param optionId - ID of the option to vote for
+   * @returns Promise that resolves when vote is cast
+   * @throws Error if voting fails
+   * 
+   * @example
+   * ```tsx
+   * const { vote } = usePoll('poll-123');
+   * 
+   * const handleVote = async (optionId: string) => {
+   *   try {
+   *     await vote(optionId);
+   *     // Vote cast successfully
+   *   } catch (error) {
+   *     console.error('Failed to vote:', error);
+   *   }
+   * };
+   * ```
+   */
+  const vote = async (optionIds: string[]) => {
+    if (!poll) return;
+    
+    try {
+      const response = await pollsAPI.votePoll(pollId, optionIds);
+      if (response.success) {
+        setPoll(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            options: prev.options.map(option => 
+              optionIds.includes(option.id)
+                ? { ...option, votes: option.votes + 1 }
+                : option
+            ),
+          };
+        });
+      } else {
+        throw new Error(response.error || 'Failed to cast vote');
+      }
+    } catch (error) {
+      console.error('Failed to vote:', error);
+      throw error;
+    }
+  };
+
+  /**
+   * Refreshes the poll data
+   * 
+   * Re-fetches the poll from the API to ensure data is up-to-date.
+   * 
+   * @example
+   * ```tsx
+   * const { refresh } = usePoll('poll-123');
+   * 
+   * const handleRefresh = () => {
+   *   refresh();
+   * };
+   * ```
+   */
+  const refresh = () => {
+    fetchPoll();
+  };
 
   return {
     poll,
     isLoading,
-    error,
-    votePoll: (pollId: string, optionIds: string[]) => votePoll(pollId, optionIds),
+    vote,
+    refresh,
   };
 }
