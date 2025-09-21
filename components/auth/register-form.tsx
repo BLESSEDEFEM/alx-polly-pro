@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Eye, EyeOff, CheckCircle2, AlertCircle, User, Mail, Lock, Shield } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/providers/auth-provider';
+import React from 'react';
 
 /**
  * Register form component props
@@ -69,7 +70,7 @@ type PasswordStrength = 'weak' | 'medium' | 'strong';
  * @param props - Component props
  * @returns JSX element containing the enhanced registration form
  */
-export function RegisterForm({ onSuccess, redirectTo = '/', className }: RegisterFormProps) {
+export const RegisterForm = React.memo(function RegisterForm({ onSuccess, redirectTo = '/', className }: RegisterFormProps) {
   const router = useRouter();
   const { refreshSession } = useAuth();
   
@@ -87,7 +88,8 @@ export function RegisterForm({ onSuccess, redirectTo = '/', className }: Registe
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [touchedFields, setTouchedFields] = useState<Set<keyof RegisterFormData>>(new Set());
+  const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   /**
    * Calculate password strength
@@ -241,14 +243,15 @@ export function RegisterForm({ onSuccess, redirectTo = '/', className }: Registe
         }
         
         setErrors({ general: errorMessage });
+        setIsLoading(false);
         return;
       }
 
-      // Success state with visual feedback
+      // Success state with visual feedback - only set after confirming no errors
       setIsSuccess(true);
       
       // Brief delay to show success state
-      setTimeout(async () => {
+      timeoutRef.current = setTimeout(async () => {
         console.log('Registration successful:', result.user?.email);
         
         // Refresh the auth context to update the UI
@@ -258,8 +261,8 @@ export function RegisterForm({ onSuccess, redirectTo = '/', className }: Registe
         if (onSuccess) {
           onSuccess();
         } else {
-          // Default redirect behavior
-          router.push(redirectTo);
+          // Default redirect behavior - go to homepage
+          router.push('/');
         }
       }, 1500);
 
@@ -268,6 +271,11 @@ export function RegisterForm({ onSuccess, redirectTo = '/', className }: Registe
       setErrors({ 
         general: 'Network error. Please check your connection and try again.' 
       });
+      // Clear any pending timeout if there's an error
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
     } finally {
       if (!isSuccess) {
         setIsLoading(false);
@@ -530,4 +538,4 @@ export function RegisterForm({ onSuccess, redirectTo = '/', className }: Registe
       </form>
     </Card>
   );
-}
+});

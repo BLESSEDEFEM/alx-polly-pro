@@ -4,9 +4,10 @@ import { Poll } from '@/types';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params;
+  const resolvedParams = await params
+  const { id } = resolvedParams;
   const supabase = createClient();
 
   const { data: pollData, error } = await supabase
@@ -38,6 +39,7 @@ export async function GET(
       id: option.id,
       text: option.text,
       votes: option.votes,
+      pollId: pollData.id,
     })),
     createdBy: pollData.created_by,
     createdAt: new Date(pollData.created_at),
@@ -46,6 +48,7 @@ export async function GET(
     expiresAt: pollData.expires_at ? new Date(pollData.expires_at) : undefined,
     allowMultipleVotes: pollData.allow_multiple_votes,
     isAnonymous: pollData.is_anonymous,
+    pollCategory: pollData.poll_category || 'general',
   };
 
   return NextResponse.json(poll);

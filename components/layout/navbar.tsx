@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
+import { useUserProfile } from '@/hooks/use-user-profile';
 import { supabase } from '@/lib/supabase';
 
 export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user } = useAuth();
+  const { isAdmin } = useUserProfile();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -24,7 +26,10 @@ export function Navbar() {
 
   const navLinks = [
     { href: '/polls', label: 'Polls', requiresAuth: false },
+    { href: '/dashboard', label: 'Dashboard', requiresAuth: true },
     { href: '/polls/create', label: 'Create Poll', requiresAuth: true },
+    { href: '/settings', label: 'Settings', requiresAuth: true },
+    { href: '/admin', label: 'Admin', requiresAuth: true, adminOnly: true },
   ];
 
   return (
@@ -43,6 +48,7 @@ export function Navbar() {
           <div className="hidden md:flex items-center space-x-8">
             {navLinks.map((link) => {
               if (link.requiresAuth && !user) return null;
+              if (link.adminOnly && !isAdmin) return null;
               
               return (
                 <Link
@@ -129,6 +135,7 @@ export function Navbar() {
             <div className="space-y-4">
               {navLinks.map((link) => {
                 if (link.requiresAuth && !user) return null;
+                if (link.adminOnly && !isAdmin) return null;
                 
                 return (
                   <Link

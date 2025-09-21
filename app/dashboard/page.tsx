@@ -7,6 +7,7 @@
 
 import { useAuth } from '@/hooks/use-auth';
 import { DashboardPollList } from '@/components/dashboard/dashboard-poll-list';
+import { DashboardAnalytics } from '@/components/charts/dashboard-analytics';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, BarChart3, Users, Clock } from 'lucide-react';
@@ -209,11 +210,9 @@ export default function DashboardPage() {
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Polls</h2>
         <DashboardPollList userId={user.id} />
       </div>
+
+      {/* Analytics Dashboard */}
+      <DashboardAnalytics userId={user.id} />
     </div>
   );
 }
-
-export const metadata = {
-  title: 'Dashboard - Polly Pro',
-  description: 'Manage your polls, view analytics, and create new ones from your personal dashboard.',
-};

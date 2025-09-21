@@ -70,9 +70,9 @@ export function createClient() {
          * Removes a cookie by setting it with an expired date
          * Used by Supabase during logout operations
          */
-        async remove(name: string, value: string, options: CookieOptions) {
+        async remove(name: string, options: CookieOptions) {
           try {
-            (await cookieStore).set({ name, value, ...options });
+            (await cookieStore).set({ name, value: '', ...options, expires: new Date(0) });
           } catch (error) {
             // This error is safe to ignore
           }

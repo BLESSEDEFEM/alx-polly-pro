@@ -270,9 +270,9 @@ export function CreatePollForm() {
       // Success state with visual feedback
       setIsSuccess(true);
       
-      // Brief delay to show success state, then navigate to polls list
+      // Brief delay to show success state, then navigate to the poll page
       setTimeout(() => {
-        router.push('/polls');
+        router.push(`/polls/${newPoll.id}`);
       }, 1500);
 
     } catch (error) {

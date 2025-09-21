@@ -69,6 +69,10 @@ interface ButtonProps extends React.ComponentProps<"button">, VariantProps<typeo
    * Useful for creating button-styled links or other interactive elements.
    */
   asChild?: boolean
+  /** 
+   * When true, shows loading state and disables the button.
+   */
+  loading?: boolean
 }
 
 /**
@@ -110,22 +114,22 @@ interface ButtonProps extends React.ComponentProps<"button">, VariantProps<typeo
  * </Button>
  * ```
  */
-function Button({
-  className,
-  variant,
-  size,
-  asChild = false,
-  ...props
-}: ButtonProps) {
-  const Comp = asChild ? Slot : "button"
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, asChild = false, loading = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button"
 
-  return (
-    <Comp
-      data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    />
-  )
-}
+    return (
+      <Comp
+        data-slot="button"
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        disabled={loading || props.disabled}
+        {...props}
+      >
+        {loading ? "Loading..." : props.children}
+      </Comp>
+    )
+  }
+)
 
 export { Button, buttonVariants, type ButtonProps }

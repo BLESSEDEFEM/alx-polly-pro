@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { QRCodeGenerator } from './qr-code-generator';
 import { Poll } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -76,16 +77,16 @@ export function PollCard({
   return (
     <Card className="w-full hover:shadow-md transition-shadow">
       <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-lg">{poll.title}</CardTitle>
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <CardTitle className="text-lg leading-tight">{poll.title}</CardTitle>
             {poll.description && (
-              <CardDescription className="mt-1">
+              <CardDescription className="mt-1 line-clamp-2">
                 {poll.description}
               </CardDescription>
             )}
           </div>
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end">
             <Badge variant={poll.isActive ? 'default' : 'secondary'}>
               {poll.isActive ? 'Active' : 'Closed'}
             </Badge>
@@ -100,14 +101,14 @@ export function PollCard({
           </div>
         </div>
         
-        <div className="flex items-center gap-4 text-sm text-gray-500">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
           <span>{totalVotes} votes</span>
-          <span>•</span>
-          <span>{formatDistanceToNow(poll.createdAt, { addSuffix: true })}</span>
+          <span className="hidden sm:inline">•</span>
+          <span className="truncate">{formatDistanceToNow(poll.createdAt, { addSuffix: true })}</span>
           {poll.expiresAt && (
             <>
-              <span>•</span>
-              <span>Expires {formatDistanceToNow(poll.expiresAt, { addSuffix: true })}</span>
+              <span className="hidden sm:inline">•</span>
+              <span className="truncate">Expires {formatDistanceToNow(poll.expiresAt, { addSuffix: true })}</span>
             </>
           )}
         </div>
@@ -179,12 +180,12 @@ export function PollCard({
           </div>
         )}
 
-        <div className="flex gap-2 mt-4">
+        <div className="flex flex-col sm:flex-row gap-2 mt-4">
           {showVoteButton && poll.isActive && (
             <Button 
               onClick={handleVote}
               disabled={selectedOptions.length === 0 || isVoting || voteSuccess}
-              className="flex-1"
+              className="flex-1 min-w-0"
             >
               {isVoting ? 'Casting Vote...' : voteSuccess ? 'Vote Cast!' : 'Cast Vote'}
             </Button>
@@ -194,11 +195,19 @@ export function PollCard({
             <Button 
               variant="outline" 
               onClick={() => onViewDetails(poll.id)}
-              className={showVoteButton ? '' : 'flex-1'}
+              className={showVoteButton ? 'sm:flex-none sm:w-auto' : 'flex-1'}
             >
               View Details
             </Button>
           )}
+
+          {/* QR Code Generator */}
+          <div className="sm:flex-none">
+            <QRCodeGenerator 
+              pollId={poll.id} 
+              pollTitle={poll.title}
+            />
+          </div>
         </div>
       </CardContent>
     </Card>

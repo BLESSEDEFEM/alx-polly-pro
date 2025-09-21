@@ -12,6 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PollCard } from '@/components/polls/poll-card';
+import { PollResultsChart } from '@/components/charts/poll-results-chart';
+import { CommentList } from '@/components/comments/comment-list';
+import { QRCodeGenerator } from '@/components/polls/qr-code-generator';
 import { usePoll } from '@/hooks/use-polls';
 import { formatDistanceToNow, format } from 'date-fns';
 
@@ -119,13 +122,19 @@ export default function PollDetailsPage() {
       {/* Poll Details */}
       <div className="grid gap-8 lg:grid-cols-3">
         {/* Main Poll Card */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-8">
           <PollCard
             poll={poll}
             onVote={handleVote}
             showVoteButton={true}
             showResults={true}
           />
+          
+          {/* Poll Results Chart */}
+          <PollResultsChart poll={poll} />
+          
+          {/* Comments Section */}
+          <CommentList pollId={pollId} />
         </div>
 
         {/* Poll Information Sidebar */}
@@ -233,6 +242,13 @@ export default function PollDetailsPage() {
               >
                 {shareSuccess ? '✓ Link Copied!' : 'Share Poll'}
               </Button>
+
+              {/* QR Code Generator */}
+              <QRCodeGenerator 
+                pollId={poll.id} 
+                pollTitle={poll.title}
+                className="w-full"
+              />
               
               <Button 
                 variant="outline" 

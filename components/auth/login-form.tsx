@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Eye, EyeOff, Mail, Lock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/providers/auth-provider';
+import React from 'react';
 
 /**
  * Login form component props
@@ -60,7 +61,7 @@ interface FormErrors {
  * @param props - Component props
  * @returns JSX element containing the enhanced login form
  */
-export function LoginForm({ onSuccess, redirectTo = '/', className }: LoginFormProps) {
+export const LoginForm = React.memo(function LoginForm({ onSuccess, redirectTo = '/', className }: LoginFormProps) {
   const router = useRouter();
   const { refreshSession } = useAuth();
   
@@ -373,4 +374,4 @@ export function LoginForm({ onSuccess, redirectTo = '/', className }: LoginFormP
       </form>
     </Card>
   );
-}
+});

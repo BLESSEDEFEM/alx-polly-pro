@@ -171,17 +171,19 @@ describe('RegisterForm Component', () => {
 
   describe('Failure Scenarios', () => {
     it('should show error message when registration fails with existing email', async () => {
-      // Mock failed registration response - ensure it doesn't trigger success path
-      const mockFetch = jest.fn().mockRejectedValueOnce(new Error('User already registered'))
-      global.fetch = mockFetch
+      // Mock API response for existing email
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ message: 'User already registered' })
+      })
 
       render(
         <TestWrapper>
-          <RegisterForm onSuccess={() => {}} />
+          <RegisterForm redirectTo="/test-redirect" />
         </TestWrapper>
       )
 
-      // Fill in the form
       const nameInput = screen.getByRole('textbox', { name: /name/i })
       const emailInput = screen.getByRole('textbox', { name: /email/i })
       const passwordInput = screen.getByLabelText(/^password$/i)
@@ -195,11 +197,11 @@ describe('RegisterForm Component', () => {
       await user.click(submitButton)
 
       // Verify API was called
-      expect(mockFetch).toHaveBeenCalledWith('/api/auth/register', expect.any(Object))
+      expect(global.fetch).toHaveBeenCalledWith('/api/auth/register', expect.any(Object))
 
       // Verify error message is displayed
       await waitFor(() => {
-        expect(screen.getByText(/network error/i)).toBeInTheDocument()
+        expect(screen.getByText(/An account with this email already exists/i)).toBeInTheDocument()
       })
 
       // Wait a bit to ensure any async operations complete

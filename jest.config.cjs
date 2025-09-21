@@ -8,23 +8,31 @@ const createJestConfig = nextJest({
 // Add any custom config to be passed to Jest
 const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  testEnvironment: 'jest-environment-jsdom',
+  testEnvironment: 'jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
-  testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/'],
+  testMatch: [
+    '**/__tests__/**/*.test.{js,jsx,ts,tsx}',
+    '**/?(*.)+(spec|test).{js,jsx,ts,tsx}'
+  ],
   collectCoverageFrom: [
     'components/**/*.{js,jsx,ts,tsx}',
-    'app/**/*.{js,jsx,ts,tsx}',
-    'lib/**/*.{js,jsx,ts,tsx}',
     'hooks/**/*.{js,jsx,ts,tsx}',
+    'lib/**/*.{js,jsx,ts,tsx}',
+    'app/**/*.{js,jsx,ts,tsx}',
     '!**/*.d.ts',
     '!**/node_modules/**',
   ],
-  testMatch: [
-    '<rootDir>/**/__tests__/**/*.{js,jsx,ts,tsx}',
-    '<rootDir>/**/*.{test,spec}.{js,jsx,ts,tsx}',
+  testPathIgnorePatterns: [
+    '<rootDir>/.next/',
+    '<rootDir>/node_modules/',
   ],
+  transform: {
+    '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { presets: ['next/babel'] }],
+  },
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
+  testTimeout: 10000,
 }
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

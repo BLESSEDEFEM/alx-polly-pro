@@ -9,6 +9,7 @@ import "./globals.css";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { AuthProvider } from "@/components/providers/auth-provider";
+import { Toaster } from "sonner";
 
 /**
  * Primary font configuration using Geist Sans
@@ -126,6 +127,9 @@ export default function RootLayout({
           
           {/* Global footer */}
           <Footer />
+          
+          {/* Toast notifications */}
+          <Toaster position="top-right" richColors />
         </AuthProvider>
       </body>
     </html>

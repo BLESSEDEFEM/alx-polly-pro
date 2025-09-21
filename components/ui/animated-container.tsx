@@ -157,7 +157,7 @@ const getEasingClasses = (easing: AnimationEasing): string => {
  * @param props - Animated container configuration
  * @returns JSX element containing the animated container
  */
-export const AnimatedContainer = forwardRef<HTMLElement, AnimatedContainerProps>(
+export const AnimatedContainer = React.memo(forwardRef<HTMLElement, AnimatedContainerProps>(
   ({
     children,
     animation = 'fade-in',
@@ -273,7 +273,7 @@ export const AnimatedContainer = forwardRef<HTMLElement, AnimatedContainerProps>
       </Component>
     );
   }
-);
+));
 
 AnimatedContainer.displayName = 'AnimatedContainer';
 
