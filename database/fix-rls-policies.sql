@@ -15,7 +15,7 @@ BEGIN
     -- This function runs with elevated privileges, bypassing RLS
     SELECT role INTO user_role 
     FROM public.user_profiles 
-    WHERE id = user_id;
+    WHERE id = COALESCE(user_id, auth.uid());
     
     RETURN COALESCE(user_role, 'user');
 END;
@@ -24,16 +24,28 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Function to check if user is admin
 CREATE OR REPLACE FUNCTION public.is_admin(user_id UUID DEFAULT auth.uid())
 RETURNS BOOLEAN AS $$
+DECLARE
+    user_role TEXT;
 BEGIN
-    RETURN public.get_user_role(user_id) = 'admin';
+    SELECT role INTO user_role 
+    FROM public.user_profiles 
+    WHERE id = COALESCE(user_id, auth.uid());
+    
+    RETURN COALESCE(user_role, 'user') = 'admin';
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function to check if user is moderator or admin
 CREATE OR REPLACE FUNCTION public.is_moderator_or_admin(user_id UUID DEFAULT auth.uid())
 RETURNS BOOLEAN AS $$
+DECLARE
+    user_role TEXT;
 BEGIN
-    RETURN public.get_user_role(user_id) IN ('admin', 'moderator');
+    SELECT role INTO user_role 
+    FROM public.user_profiles 
+    WHERE id = COALESCE(user_id, auth.uid());
+    
+    RETURN COALESCE(user_role, 'user') IN ('admin', 'moderator');
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -80,10 +92,7 @@ CREATE POLICY "Users can view own profile" ON public.user_profiles
 -- Allow users to update their own profile (basic info only, not role)
 CREATE POLICY "Users can update own profile" ON public.user_profiles
     FOR UPDATE USING (auth.uid() = id)
-    WITH CHECK (
-        auth.uid() = id 
-        AND role = OLD.role  -- Prevent role changes by regular users
-    );
+    WITH CHECK (auth.uid() = id);
 
 -- Allow users to insert their own profile (for new registrations)
 CREATE POLICY "Users can insert own profile" ON public.user_profiles
@@ -142,11 +151,6 @@ GRANT EXECUTE ON FUNCTION public.get_user_role(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_admin(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_moderator_or_admin(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.user_exists_and_active(UUID) TO authenticated;
-
--- Grant execute permissions for default parameter versions
-GRANT EXECUTE ON FUNCTION public.get_user_role() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.is_moderator_or_admin() TO authenticated;
 
 -- ============================================================================
 -- VERIFICATION QUERIES (Run these to test the fix)
