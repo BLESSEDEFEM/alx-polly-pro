@@ -38,7 +38,7 @@ export async function GET(
     options: pollData.options.map((option: any) => ({
       id: option.id,
       text: option.text,
-      votes: option.votes,
+      votes: option.vote_count,
       pollId: pollData.id,
     })),
     createdBy: pollData.created_by,

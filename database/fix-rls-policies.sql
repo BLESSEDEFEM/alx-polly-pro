@@ -67,17 +67,27 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- DROP PROBLEMATIC POLICIES
 -- ============================================================================
 
--- Drop all existing user_profiles policies that cause circular references
+-- Drop all existing policies to avoid conflicts
+-- USER PROFILES POLICIES
 DROP POLICY IF EXISTS "Users can view own profile" ON public.user_profiles;
 DROP POLICY IF EXISTS "Users can update own profile" ON public.user_profiles;
 DROP POLICY IF EXISTS "Users can update their own profile" ON public.user_profiles;
 DROP POLICY IF EXISTS "Users can insert their own profile" ON public.user_profiles;
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.user_profiles;
 DROP POLICY IF EXISTS "Admins can view all profiles" ON public.user_profiles;
 DROP POLICY IF EXISTS "Admins can update user roles" ON public.user_profiles;
+DROP POLICY IF EXISTS "Admins can update any profile" ON public.user_profiles;
+DROP POLICY IF EXISTS "Admins can insert any profile" ON public.user_profiles;
 
--- Drop related policies in other tables that reference user_profiles
+-- POLLS POLICIES
+DROP POLICY IF EXISTS "Anyone can view active polls" ON public.polls;
+DROP POLICY IF EXISTS "Users can view own polls" ON public.polls;
+DROP POLICY IF EXISTS "Authenticated users can create polls" ON public.polls;
 DROP POLICY IF EXISTS "Users can update their own polls" ON public.polls;
 DROP POLICY IF EXISTS "Users can delete their own polls" ON public.polls;
+
+-- POLL OPTIONS POLICIES
+DROP POLICY IF EXISTS "Anyone can view poll options" ON public.poll_options;
 DROP POLICY IF EXISTS "Poll creators can manage options" ON public.poll_options;
 
 -- ============================================================================
@@ -114,6 +124,18 @@ CREATE POLICY "Admins can insert any profile" ON public.user_profiles
 -- UPDATE POLLS POLICIES (Remove circular references)
 -- ============================================================================
 
+-- Allow users to view active polls (MISSING POLICY - THIS WAS THE ISSUE!)
+CREATE POLICY "Anyone can view active polls" ON public.polls
+    FOR SELECT USING (is_active = true);
+
+-- Allow users to view their own polls regardless of status
+CREATE POLICY "Users can view own polls" ON public.polls
+    FOR SELECT USING (auth.uid() = created_by);
+
+-- Allow authenticated users to create polls
+CREATE POLICY "Authenticated users can create polls" ON public.polls
+    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
 -- Allow poll creators to update their own polls, or moderators/admins to update any poll
 CREATE POLICY "Users can update their own polls" ON public.polls
     FOR UPDATE USING (
@@ -131,6 +153,16 @@ CREATE POLICY "Users can delete their own polls" ON public.polls
 -- ============================================================================
 -- UPDATE POLL OPTIONS POLICIES (Remove circular references)
 -- ============================================================================
+
+-- Allow users to view options for active polls
+CREATE POLICY "Anyone can view poll options" ON public.poll_options
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.polls 
+            WHERE polls.id = poll_options.poll_id 
+            AND polls.is_active = true
+        )
+    );
 
 -- Allow poll creators to manage their poll options, or moderators/admins to manage any options
 CREATE POLICY "Poll creators can manage options" ON public.poll_options

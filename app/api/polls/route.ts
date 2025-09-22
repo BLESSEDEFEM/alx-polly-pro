@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     options: poll.options.map((option: any) => ({
       id: option.id,
       text: option.text,
-      votes: option.votes,
+      votes: option.vote_count,
     })),
     createdBy: poll.created_by,
     createdAt: new Date(poll.created_at),

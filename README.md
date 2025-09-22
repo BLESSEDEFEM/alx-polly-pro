@@ -1,6 +1,6 @@
 # Polly Pro - Advanced Polling Platform
 
-A modern, feature-rich polling platform built with Next.js 15, TypeScript, Supabase, and shadcn/ui components.
+A modern, feature-rich polling platform built with Next.js 15, TypeScript, Supabase, FastAPI, and shadcn/ui components. This project demonstrates a hybrid architecture combining Next.js frontend with both Supabase backend services and a custom FastAPI backend for enhanced functionality.
 
 ## 🚀 Features
 
@@ -21,14 +21,25 @@ A modern, feature-rich polling platform built with Next.js 15, TypeScript, Supab
 
 ## 🛠️ Tech Stack
 
+### Frontend
 - **Framework**: Next.js 15 with App Router
 - **Language**: TypeScript
-- **Authentication**: Supabase Auth
-- **Database**: Supabase PostgreSQL
 - **Styling**: Tailwind CSS
 - **UI Components**: shadcn/ui
 - **Icons**: Lucide React
 - **State Management**: React Context API
+
+### Backend Services
+- **Primary Database**: Supabase PostgreSQL
+- **Authentication**: Supabase Auth
+- **API Backend**: FastAPI (Python)
+- **Client Libraries**: Custom FastAPI client with requests library
+
+### Development Tools
+- **Testing**: Jest with React Testing Library
+- **Linting**: ESLint with TypeScript support
+- **Package Manager**: npm
+- **Environment**: Node.js
 
 ## 📁 Project Structure
 
@@ -73,28 +84,100 @@ alx-polly-pro/
 
 ## 🔧 Setup Instructions
 
-### 1. Environment Variables
+### Prerequisites
+- **Node.js** (v18 or higher)
+- **npm** or **yarn**
+- **Python** (v3.8 or higher) - for FastAPI backend
+- **Supabase Account** - for database and authentication
+
+### 1. Clone and Install Dependencies
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd alx-polly-pro
+
+# Install Node.js dependencies
+npm install
+```
+
+### 2. Environment Configuration
 
 Create a `.env.local` file in the root directory:
 
 ```env
+# Supabase Configuration
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# FastAPI Configuration
+NEXT_PUBLIC_FASTAPI_URL=http://127.0.0.1:8000
+FASTAPI_SECRET_KEY=your_secret_key_here
+
+# Backend Selection (supabase or fastapi)
+NEXT_PUBLIC_BACKEND_TYPE=supabase
 ```
 
-### 2. Install Dependencies
+### 3. Database Setup
+
+#### Supabase Setup
+1. Create a new Supabase project
+2. Run the SQL schema from `database/schema.sql`
+3. Configure Row Level Security (RLS) policies
+4. Update environment variables with your Supabase credentials
+
+#### FastAPI Backend Setup (Optional)
+If you want to use the FastAPI backend:
 
 ```bash
-npm install
+# Install Python dependencies
+pip install fastapi uvicorn sqlalchemy psycopg2-binary python-multipart
+
+# Run FastAPI server
+uvicorn main:app --reload --port 8000
 ```
 
-### 3. Run Development Server
+### 4. Run Development Servers
 
+#### Next.js Frontend
 ```bash
 npm run dev
 ```
+The frontend will be available at `http://localhost:3000`
 
-The application will be available at `http://localhost:3000` (or `http://localhost:3001` if port 3000 is in use).
+#### FastAPI Backend (if using)
+```bash
+# In a separate terminal
+cd polly-api
+uvicorn main:app --reload --port 8000
+```
+The API will be available at `http://localhost:8000`
+
+### 5. Testing the Setup
+
+#### Frontend Testing
+- Navigate to `http://localhost:3000`
+- Test authentication flows (register/login)
+- Create and vote on polls
+- Check responsive design on different devices
+
+#### API Testing (FastAPI)
+```bash
+# Test user registration
+python python_client.py
+
+# Or test individual endpoints
+curl -X POST "http://localhost:8000/register" \
+     -H "Content-Type: application/json" \
+     -d '{"username": "testuser", "password": "testpass123"}'
+```
+
+### 6. Development Workflow
+
+1. **Frontend Development**: Make changes to components in `/components`, `/app`, or `/lib`
+2. **Backend Development**: Modify FastAPI endpoints or database schema
+3. **Testing**: Run tests with `npm test`
+4. **Building**: Create production build with `npm run build`
 
 ## 🧪 Testing the Authentication System
 
@@ -453,9 +536,89 @@ For the complete schema with all policies, triggers, and sample data, see: <mcfi
 - **Enhanced**: Comprehensive error handling and user feedback
 - **Enhanced**: Loading states and accessibility improvements
 
+## 🤖 AI Usage and Development Notes
+
+This project was developed with significant AI assistance, demonstrating modern AI-powered development workflows:
+
+### AI Tools and Contexts Used
+
+#### **Code Generation and Architecture**
+- **AI Assistant**: Claude 4 Sonnet via Trae AI IDE
+- **Code Scaffolding**: AI-generated component structures, API clients, and database schemas
+- **Architecture Decisions**: AI-guided hybrid backend architecture (Supabase + FastAPI)
+- **Best Practices**: AI-suggested TypeScript patterns, React hooks, and error handling
+
+#### **Development Workflow**
+- **Real-time Code Review**: AI-powered code analysis and improvement suggestions
+- **Documentation Generation**: AI-assisted README creation and code documentation
+- **Testing Strategies**: AI-recommended testing approaches and test case generation
+- **Performance Optimization**: AI-identified database index optimizations
+
+#### **Problem Solving Approach**
+- **Iterative Development**: AI-guided step-by-step feature implementation
+- **Error Resolution**: AI-assisted debugging and error handling improvements
+- **Integration Challenges**: AI-helped resolve authentication flow and backend integration issues
+- **Code Refactoring**: AI-suggested improvements for maintainability and performance
+
+### Key AI Contributions
+
+1. **FastAPI Integration**: AI designed the hybrid architecture and Python client implementation
+2. **Authentication Flow**: AI resolved complex redirect issues and session management
+3. **Database Optimization**: AI identified and resolved performance bottlenecks
+4. **UI/UX Enhancements**: AI-generated animation systems and form validation patterns
+5. **Error Handling**: AI-created comprehensive error management system
+
+### Development Insights
+
+- **AI Pair Programming**: Effective for rapid prototyping and architecture decisions
+- **Code Quality**: AI suggestions improved code consistency and best practices adherence
+- **Documentation**: AI significantly accelerated comprehensive documentation creation
+- **Learning Acceleration**: AI explanations enhanced understanding of complex concepts
+
 ## 🚀 Deployment
 
-The application is ready for deployment to platforms like Vercel, Netlify, or any Node.js hosting service. Ensure environment variables are properly configured in your deployment environment.
+### Frontend Deployment (Vercel/Netlify)
+```bash
+# Build the application
+npm run build
+
+# Deploy to Vercel
+vercel --prod
+
+# Or deploy to Netlify
+netlify deploy --prod --dir=.next
+```
+
+### Backend Deployment (FastAPI)
+```bash
+# Using Docker
+docker build -t polly-api .
+docker run -p 8000:8000 polly-api
+
+# Using cloud platforms (Railway, Render, etc.)
+# Follow platform-specific deployment guides
+```
+
+### Environment Variables for Production
+Ensure all environment variables are properly configured in your deployment environment:
+- Supabase credentials
+- FastAPI configuration
+- Database connection strings
+- Security keys and tokens
+
+## 📸 Screenshots
+
+### Authentication Flow
+*[Screenshots to be added by user]*
+
+### Dashboard and Polls
+*[Screenshots to be added by user]*
+
+### Mobile Responsive Design
+*[Screenshots to be added by user]*
+
+### Admin Panel
+*[Screenshots to be added by user]*
 
 ## 📄 License
 
