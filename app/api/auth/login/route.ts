@@ -27,11 +27,23 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({
+    // Create the response
+    const response = NextResponse.json({
       message: 'Login successful',
       user: data.user,
       session: data.session,
     });
+    
+    // Set a cookie to indicate successful authentication
+    // This helps with client-side redirect reliability
+    response.cookies.set('authSuccess', 'true', {
+      maxAge: 60, // Short-lived cookie, just for the redirect
+      path: '/',
+      httpOnly: false, // Allow JavaScript access
+      sameSite: 'strict'
+    });
+    
+    return response;
   } catch (error) {
     console.error('Login API error:', error);
     return NextResponse.json(

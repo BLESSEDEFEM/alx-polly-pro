@@ -254,17 +254,51 @@ export const RegisterForm = React.memo(function RegisterForm({ onSuccess, redire
       timeoutRef.current = setTimeout(async () => {
         console.log('Registration successful:', result.user?.email);
         
+        // Store the redirect URL for reliability
+        const finalRedirect = redirectTo || '/';
+        try {
+          // Store in both sessionStorage and localStorage for redundancy
+          sessionStorage.setItem('authRedirectPath', finalRedirect);
+          localStorage.setItem('authRedirectPath', finalRedirect);
+          // Set a cookie as a backup mechanism
+          document.cookie = `authRedirect=${encodeURIComponent(finalRedirect)};path=/;max-age=300`;
+          console.log('Stored redirect URL:', finalRedirect);
+        } catch (error) {
+          console.error('Error storing redirect path:', error);
+        }
+        
         // Refresh the auth context to update the UI
-        await refreshSession();
+        try {
+          await refreshSession();
+          console.log('Session refreshed successfully');
+        } catch (error) {
+          console.error('Error refreshing session:', error);
+        }
         
         // Call success callback if provided
         if (onSuccess) {
+          console.log('Calling onSuccess callback');
           onSuccess();
         } else {
-          // Default redirect behavior - go to homepage
-          router.push('/');
+          console.log('Redirecting to:', finalRedirect);
+          
+          // Use a more reliable navigation approach with fallbacks
+          try {
+            // First approach: direct assignment (most reliable)
+            window.location.href = finalRedirect;
+            
+            // Second approach: as a fallback
+            setTimeout(() => {
+              console.log('Fallback navigation triggered');
+              window.location.replace(finalRedirect);
+            }, 1000);
+          } catch (error) {
+            console.error('Error during redirect:', error);
+            // Last resort fallback
+            router.push(finalRedirect);
+          }
         }
-      }, 1500);
+      }, 2000); // Increased timeout to ensure session is fully established
 
     } catch (error) {
       console.error('Registration error:', error);

@@ -313,7 +313,86 @@ For the complete schema with all policies, triggers, and sample data, see: <mcfi
 - **CSRF Protection**: Built-in CSRF protection with Supabase
 - **Secure Cookies**: HTTP-only cookies for session management
 
+## 📋 Code Reviews
+
+### Authentication Flow Improvements (Latest - v1.2.0)
+
+**Issue**: Login pages were refreshing instead of redirecting properly after successful authentication.
+
+**Root Cause Analysis**:
+- Use of `window.location.href` and `window.location.replace()` causing full page refreshes
+- Inconsistent redirect handling between login form and auth provider
+- Missing proper Next.js router usage for client-side navigation
+
+**Implemented Fixes**:
+
+1. **Login Form Component** (`components/auth/login-form.tsx`)
+   - Replaced all `window.location` methods with Next.js `router.push()`
+   - Improved redirect URL handling from query parameters
+   - Enhanced error handling and fallback navigation
+
+2. **Auth Provider** (`components/providers/auth-provider.tsx`)
+   - Added Next.js router import and initialization
+   - Updated auth state change handler to use `router.push()` instead of `window.location.href`
+   - Maintained redirect URL cleanup and session management
+
+3. **Benefits**:
+   - Eliminates page refresh during authentication flow
+   - Provides smoother user experience with client-side navigation
+   - Maintains application state during redirects
+   - Improves performance by avoiding full page reloads
+
+**Testing Recommendations**:
+- Test login flow with various redirect URLs
+- Verify protected route access and redirects
+- Check authentication state persistence
+- Test error scenarios and fallback behavior
+
+### Database Index Optimization (v1.1.5)
+
+**Issue**: Supabase Performance Advisor identified 8 unused database indexes consuming unnecessary storage and affecting write performance.
+
+**Analysis Results**:
+- Identified unused indexes on `polls`, `votes`, and `poll_options` tables
+- Query patterns showed minimal use of indexed columns in WHERE clauses
+- Most queries were simple SELECT operations without complex filtering
+
+**Implemented Changes**:
+- Removed 8 unused indexes while retaining `idx_poll_options_poll_id`
+- Created cleanup script (`database/cleanup-unused-indexes.sql`)
+- Updated schema files with optimized index configuration
+- Documented changes and rollback procedures
+
+**Performance Benefits**:
+- Reduced database storage overhead
+- Improved INSERT/UPDATE/DELETE performance
+- Simplified database maintenance
+
 ## 📋 Changelog
+
+### Version 1.2.0 - Authentication Flow Fix (Current)
+
+#### Fixed
+- **Login Redirect Issue**: Resolved page refresh problem during authentication
+  - Replaced `window.location` methods with Next.js `router.push()`
+  - Improved client-side navigation for smoother user experience
+  - Enhanced redirect URL handling and error recovery
+
+#### Enhanced
+- **Auth Provider**: Better session management and redirect handling
+- **Login Form**: More reliable navigation after successful authentication
+- **User Experience**: Eliminated page refreshes during auth flow
+
+### Version 1.1.5 - Database Performance Optimization
+
+#### Optimized
+- **Database Indexes**: Removed 8 unused indexes identified by Supabase Performance Advisor
+- **Query Performance**: Improved write operation performance
+- **Storage Efficiency**: Reduced database storage overhead
+
+#### Added
+- **Cleanup Script**: Database index cleanup script with rollback capability
+- **Documentation**: Updated schema documentation with optimization notes
 
 ### Version 1.1.0 - UI Enhancement Update (Current)
 

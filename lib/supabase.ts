@@ -3,7 +3,7 @@
  * Provides a configured Supabase client instance for authentication and database operations
  */
 
-import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserClient } from '@supabase/ssr';
 
 /**
  * Supabase client instance for browser-side operations
@@ -33,7 +33,10 @@ import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
  *   .select('*');
  * ```
  */
-export const supabase = createPagesBrowserClient();
+export const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // Validate environment variables in development
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {

@@ -5,9 +5,11 @@
 
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { getCookie, deleteCookie } from '@/lib/utils';
 
 /**
  * Authentication context type definition
@@ -75,6 +77,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   /**
    * Sign out the current user
@@ -90,16 +93,63 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   /**
-   * Refresh the current session
-   * Useful for manual token refresh or session validation
+   * Refresh the session data
+   * This is used to update the session after login/logout
    */
-  const refreshSession = async () => {
+  const refreshSession = useCallback(async () => {
+    console.log('Refreshing session...');
     try {
-      const { data: { session } } = await supabase.auth.refreshSession();
-      setSession(session);
-      setUser(session?.user ?? null);
+      // First try to refresh the session
+      const { data, error } = await supabase.auth.refreshSession();
+      
+      if (error) {
+        console.error('Error refreshing session:', error);
+        
+        // If refresh fails, try to get the current session as fallback
+        console.log('Falling back to getSession...');
+        const { data: fallbackData, error: fallbackError } = await supabase.auth.getSession();
+        
+        if (fallbackError) {
+          console.error('Error getting session:', fallbackError);
+          throw fallbackError;
+        }
+        
+        console.log('Session retrieved via fallback');
+        setSession(fallbackData.session);
+        setUser(fallbackData.session?.user ?? null);
+        return;
+      }
+      
+      console.log('Session refreshed successfully:', data.session?.user?.email);
+      setSession(data.session);
+      setUser(data.session?.user ?? null);
     } catch (error) {
-      console.error('Error refreshing session:', error);
+      console.error('Error in refreshSession:', error);
+      throw error;
+    }
+  }, []);
+
+  // Check for stored redirect paths and verify session persistence
+  const checkStoredRedirects = () => {
+    try {
+      // Check for stored redirect paths
+      const sessionRedirect = sessionStorage.getItem('authRedirectPath');
+      const localRedirect = localStorage.getItem('authRedirectPath');
+      
+      if (sessionRedirect || localRedirect) {
+        console.log('Found stored redirect path:', sessionRedirect || localRedirect);
+      }
+      
+      // Check for auth cookies
+      const cookies = document.cookie.split(';').map(cookie => cookie.trim());
+      const authCookie = cookies.find(cookie => cookie.startsWith('authRedirect='));
+      
+      if (authCookie) {
+        const cookieValue = decodeURIComponent(authCookie.split('=')[1]);
+        console.log('Found auth redirect cookie:', cookieValue);
+      }
+    } catch (error) {
+      console.error('Error checking stored redirects:', error);
     }
   };
 
@@ -109,14 +159,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
      * This restores the user's authentication state if they have a valid session
      */
     const getSession = async () => {
+      console.log('AuthProvider - Initializing');
       try {
+        // First check for stored redirects
+        checkStoredRedirects();
+        
+        // Configure session persistence
+        const { data: persistenceData, error: persistenceError } = await supabase.auth.getSession();
+        
+        if (persistenceError) {
+          console.error('Error configuring session persistence:', persistenceError);
+        } else {
+          console.log('Session persistence configured:', !!persistenceData.session);
+        }
+        
+        // Get the current session
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('Error getting session:', error);
         } else {
+          console.log('AuthProvider - Initial session loaded:', !!session, session?.user?.email);
+          console.log('AuthProvider - User authenticated:', !!session?.user);
           setSession(session);
           setUser(session?.user ?? null);
+          
+          // If we have a session but there's a stored redirect, handle it
+          if (session && (sessionStorage.getItem('authRedirectPath') || localStorage.getItem('authRedirectPath'))) {
+            console.log('Found session and stored redirect, refreshing session');
+            try {
+              await refreshSession();
+            } catch (refreshError) {
+              console.error('Error refreshing session with stored redirect:', refreshError);
+            }
+          }
         }
       } catch (error) {
         console.error('Error in getSession:', error);
@@ -135,8 +211,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
         
+        // Update local state with the new session
         setSession(session);
         setUser(session?.user ?? null);
+        
+        // For login events, ensure we have the latest session data
+        if (event === 'SIGNED_IN') {
+          console.log('User signed in, refreshing session data');
+          try {
+            // Check for stored redirects
+            checkStoredRedirects();
+            
+            // Check for stored redirect URL
+            const storedRedirect = sessionStorage.getItem('authRedirect');
+            const cookieRedirect = getCookie('authRedirect');
+            const redirectUrl = storedRedirect || cookieRedirect;
+            
+            if (redirectUrl) {
+              console.log('Found redirect URL:', redirectUrl);
+              // Clean up stored redirects
+              sessionStorage.removeItem('authRedirect');
+              deleteCookie('authRedirect');
+              
+              // Use router for navigation instead of window.location
+              setTimeout(() => {
+                router.push(redirectUrl);
+              }, 100);
+            }
+            
+            await refreshSession();
+          } catch (error) {
+            console.error('Error refreshing session after sign in:', error);
+          }
+        }
         
         // Set loading to false after any auth state change
         setIsLoading(false);
@@ -147,7 +254,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, []);
+  }, []); // Remove refreshSession from dependencies to prevent infinite loop
 
   // Context value object
   const value: AuthContextType = {

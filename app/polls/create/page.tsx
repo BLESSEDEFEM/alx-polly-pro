@@ -7,16 +7,47 @@ import { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, Lock } from 'lucide-react';
+import Link from 'next/link';
 
 export default function CreatePollPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/auth/login?redirect=/polls/create');
+    console.log('CreatePollPage - Auth state:', { user: !!user, isLoading, email: user?.email });
+    
+    // Check for a stored redirect from a successful login
+    const checkForStoredRedirect = () => {
+      // Check if we just completed authentication and were redirected here
+      const storedRedirect = sessionStorage.getItem('authRedirectUrl');
+      const redirectCookie = document.cookie.split('; ').find(row => row.startsWith('authRedirect='));
+      
+      if (storedRedirect === '/polls/create' || (redirectCookie && decodeURIComponent(redirectCookie.split('=')[1]) === '/polls/create')) {
+        console.log('Found stored redirect to polls/create, clearing storage');
+        // Clear the stored redirect to prevent loops
+        sessionStorage.removeItem('authRedirectUrl');
+        
+        // Clear the cookie if it exists
+        if (redirectCookie) {
+          document.cookie = 'authRedirect=; path=/; max-age=0';
+        }
+      }
+    };
+    
+    if (!isLoading) {
+      if (!user) {
+        // Redirect to login with the current page as redirect parameter
+        const redirectUrl = `/auth/login?redirect=${encodeURIComponent('/polls/create')}`;
+        console.log('Redirecting unauthenticated user to:', redirectUrl);
+        // Use window.location.replace for a hard navigation to avoid caching issues
+        window.location.replace(redirectUrl);
+      } else {
+        console.log('User is authenticated, showing poll creation page');
+        // Check and clear any stored redirects
+        checkForStoredRedirect();
+      }
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading]);
 
   if (isLoading) {
     return (
@@ -45,19 +76,12 @@ export default function CreatePollPage() {
                 You need to be logged in to create polls.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <Button 
-                onClick={() => router.push('/auth/login?redirect=/polls/create')}
-                className="w-full"
-              >
-                Sign In
-              </Button>
-              <Button 
-                variant="outline"
-                onClick={() => router.push('/auth/register?redirect=/polls/create')}
-                className="w-full"
-              >
-                Create Account
+            <CardContent className="text-center">
+              <p className="mb-4">Please sign in to access this feature.</p>
+              <Button asChild>
+                <Link href="/auth/login?redirect=/polls/create">
+                  Go to Login
+                </Link>
               </Button>
             </CardContent>
           </Card>

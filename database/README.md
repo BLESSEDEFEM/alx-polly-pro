@@ -1,118 +1,130 @@
-# Database Setup Instructions
+# Database Schema and Setup
 
-This directory contains the database schema and setup instructions for the Polly Pro application.
+This directory contains all database-related files for the ALX Polly Pro application.
 
-## Prerequisites
+## Files Overview
 
-1. **Supabase Account**: You need a Supabase project set up
-2. **Environment Variables**: Ensure your `.env.local` file is configured with:
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
+- `schema.sql` - Main database schema with tables and initial policies
+- `schema-optimized.sql` - Optimized version with performance improvements
+- `create-user-profiles.sql` - User profiles table creation
+- `create-polls-tables.sql` - Polls and related tables creation
+- `fix-rls-policies.sql` - **CRITICAL FIX** for infinite recursion in RLS policies
+- `cleanup-unused-indexes.sql` - Database maintenance script
 
-## Database Setup Steps
+## 🚨 IMPORTANT: RLS Policy Fix
 
-### 1. Create the Database Schema
+If you encounter the error:
+```
+Error fetching user profile: {code: 42P17, details: null, hint: null, message: infinite recursion detected in policy for relation "user_profiles"}
+```
 
-1. Open your Supabase dashboard
-2. Navigate to the SQL Editor
-3. Copy the contents of `schema.sql` and paste it into the SQL Editor
-4. Click "Run" to execute the schema creation
+**SOLUTION:** Run the `fix-rls-policies.sql` script immediately. This provides a permanent fix using security definer functions.
 
-### 2. Verify Tables Created
+### Why This Error Occurs
 
-After running the schema, you should see the following tables in your Supabase database:
+The error happens due to circular references in Row Level Security (RLS) policies:
 
-- `polls` - Stores poll information
-- `poll_options` - Stores options for each poll
-- `votes` - Stores user votes
+1. **Self-Referencing Policies** - Policies that query the same table they protect
+2. **Admin Role Checks** - Policies checking user roles by querying `user_profiles` from within `user_profiles` policies
+3. **Recursive Subqueries** - Nested queries that create infinite loops
 
-### 3. Enable Row Level Security (RLS)
+### The Permanent Solution
 
-The schema automatically enables RLS and creates the necessary policies for:
+The `fix-rls-policies.sql` script implements:
 
-- **Public Access**: Anyone can view active polls and their options
-- **Authenticated Access**: Only authenticated users can create polls and vote
-- **Owner Access**: Poll creators can manage their own polls
+1. **Security Definer Functions** - Bypass RLS for role checks
+2. **Non-Circular Policies** - Rewritten policies without self-references
+3. **Performance Optimization** - Direct role lookups without policy loops
+4. **Proper Security** - Maintains access control without compromising security
 
-### 4. Test the Setup
+## Setup Instructions
 
-You can test the database setup by:
+### 1. Initial Setup (New Database)
+```sql
+-- Run in this order:
+1. schema.sql (or schema-optimized.sql for better performance)
+2. fix-rls-policies.sql (REQUIRED to prevent recursion errors)
+```
 
-1. Starting your development server: `npm run dev`
-2. Registering a new user account
-3. Creating a test poll
-4. Voting on the poll
+### 2. Fixing Existing Database
+```sql
+-- If you already have the database set up:
+1. fix-rls-policies.sql (This will fix the recursion issue)
+```
 
-## Database Schema Overview
+### 3. Verification
+After running the fix, test with these queries:
+```sql
+-- Test 1: Check if functions work
+SELECT public.get_user_role();
+SELECT public.is_admin();
 
-### Tables
+-- Test 2: Verify user profile access
+SELECT * FROM public.user_profiles WHERE id = auth.uid();
 
-#### `polls`
-- `id` (UUID, Primary Key)
-- `title` (Text, Required)
-- `description` (Text, Optional)
-- `created_by` (UUID, Foreign Key to auth.users)
-- `created_at` (Timestamp)
-- `updated_at` (Timestamp)
-- `expires_at` (Timestamp, Optional)
-- `allow_multiple_votes` (Boolean)
-- `is_anonymous` (Boolean)
-- `is_active` (Boolean)
+-- Test 3: Performance check
+EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM public.user_profiles LIMIT 1;
+```
 
-#### `poll_options`
-- `id` (UUID, Primary Key)
-- `poll_id` (UUID, Foreign Key to polls)
-- `text` (Text, Required)
-- `vote_count` (Integer)
-- `created_at` (Timestamp)
-- `updated_at` (Timestamp)
+## Database Schema
 
-#### `votes`
-- `id` (UUID, Primary Key)
-- `poll_id` (UUID, Foreign Key to polls)
-- `option_id` (UUID, Foreign Key to poll_options)
-- `user_id` (UUID, Foreign Key to auth.users)
-- `created_at` (Timestamp)
+### Core Tables
 
-### Automatic Features
+1. **user_profiles** - Extended user information with roles
+2. **polls** - Poll data and metadata
+3. **poll_options** - Individual poll choices
+4. **votes** - User votes with duplicate prevention
+5. **comments** - Poll discussions (if enabled)
 
-- **Vote Counting**: Triggers automatically update vote counts when votes are cast or removed
-- **Timestamp Updates**: Triggers automatically update `updated_at` timestamps
-- **Performance Indexes**: Optimized indexes for common queries
-- **Data Integrity**: Foreign key constraints ensure data consistency
+### Security Features
 
-## Troubleshooting
+- **Row Level Security (RLS)** enabled on all tables
+- **Role-based access control** (admin, moderator, user)
+- **Duplicate vote prevention** via unique constraints
+- **Anonymous voting support** for public polls
 
-### Common Issues
+### Key Functions (Post-Fix)
 
-1. **"Table not found" errors**: Ensure you've run the schema.sql file in your Supabase SQL Editor
+- `get_user_role(user_id)` - Get user role without RLS conflicts
+- `is_admin(user_id)` - Check admin status safely
+- `is_moderator_or_admin(user_id)` - Check elevated privileges
+- `user_exists_and_active(user_id)` - Verify user status
 
-2. **Permission denied errors**: Check that RLS policies are properly set up and your user is authenticated
+## Maintenance
 
-3. **Environment variable errors**: Verify your `.env.local` file has the correct Supabase URL and anon key
+### Regular Tasks
+1. Monitor query performance with `EXPLAIN ANALYZE`
+2. Update statistics: `ANALYZE;`
+3. Check for unused indexes with `cleanup-unused-indexes.sql`
 
-### Resetting the Database
+### Troubleshooting
 
-If you need to reset the database:
+**Problem:** Infinite recursion errors
+**Solution:** Run `fix-rls-policies.sql`
 
-1. In Supabase SQL Editor, run:
-   ```sql
-   DROP TABLE IF EXISTS public.votes CASCADE;
-   DROP TABLE IF EXISTS public.poll_options CASCADE;
-   DROP TABLE IF EXISTS public.polls CASCADE;
-   ```
+**Problem:** Permission denied errors
+**Solution:** Check RLS policies and user roles
 
-2. Re-run the `schema.sql` file
+**Problem:** Slow queries
+**Solution:** Use `schema-optimized.sql` and add appropriate indexes
 
-## Sample Data
+## Environment Variables
 
-The schema includes commented sample data at the bottom. Uncomment and run it if you want to test with sample polls.
+Ensure these are set in your application:
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+```
 
-## Security Notes
+## Support
 
-- All tables have Row Level Security (RLS) enabled
-- Users can only access data they're authorized to see
-- Poll creators have full control over their polls
-- Anonymous voting is supported when enabled per poll
+For database-related issues:
+1. Check the error logs in Supabase dashboard
+2. Verify RLS policies are not causing conflicts
+3. Ensure proper permissions are granted
+4. Run the verification queries after any schema changes
+
+---
+
+**Note:** Always backup your database before running schema changes in production.

@@ -155,6 +155,7 @@ export const LoginForm = React.memo(function LoginForm({ onSuccess, redirectTo =
     setIsLoading(true);
 
     try {
+      console.log('Login form - Starting login process');
       // Use our custom API endpoint for login
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -168,6 +169,7 @@ export const LoginForm = React.memo(function LoginForm({ onSuccess, redirectTo =
       });
 
       const result = await response.json();
+      console.log('Login form - API response received');
 
       if (!response.ok) {
         // Handle API errors with better UX
@@ -189,21 +191,60 @@ export const LoginForm = React.memo(function LoginForm({ onSuccess, redirectTo =
       // Success state with visual feedback
       setIsSuccess(true);
       
-      // Brief delay to show success state
+      console.log('Login successful:', result.user?.email);
+      console.log('Redirect URL:', redirectTo);
+      
+      // Store the redirect URL directly in sessionStorage for reliability
+      const finalRedirect = redirectTo || '/';
+      sessionStorage.setItem('authRedirectUrl', finalRedirect);
+      console.log('Stored redirect URL in sessionStorage:', finalRedirect);
+      
+      // Set a cookie as a backup mechanism for the redirect
+      document.cookie = `authRedirect=${encodeURIComponent(finalRedirect)};path=/;max-age=300`;
+      console.log('Set backup redirect cookie');
+      
+      // Brief delay to show success state and ensure session is established
       setTimeout(async () => {
-        console.log('Login successful:', result.user?.email);
-        
-        // Refresh the auth context to update the UI
-        await refreshSession();
-        
-        // Call success callback if provided
-        if (onSuccess) {
-          onSuccess();
-        } else {
-          // Default redirect behavior
-          router.push(redirectTo);
+        try {
+          // Refresh the auth context to update the UI and wait for completion
+          console.log('Refreshing session...');
+          await refreshSession();
+          console.log('Session refreshed successfully');
+          
+          // Call success callback if provided
+          if (onSuccess) {
+            console.log('Calling onSuccess callback');
+            onSuccess();
+          } else {
+            console.log('Redirecting to:', finalRedirect);
+            
+            // Force a complete page reload with the redirect URL
+            // Use Next.js router for proper client-side navigation
+            console.log('Using Next.js router for navigation');
+            
+            // Use Next.js router for client-side navigation
+            router.push(finalRedirect);
+            
+            // As a fallback, if the navigation doesn't happen within 1 second,
+            // try an alternative navigation method
+            setTimeout(() => {
+              console.log('Fallback navigation triggered');
+              router.push(finalRedirect);
+            }, 1000);
+          }
+        } catch (error) {
+          console.error('Error refreshing session:', error);
+          // Still redirect even if refresh fails, as login was successful
+          console.log('Redirecting despite refresh error to:', finalRedirect);
+          
+          // Use Next.js router for proper client-side navigation
+            router.push(finalRedirect);
+            
+            setTimeout(() => {
+              router.push(finalRedirect);
+            }, 1000);
         }
-      }, 1000);
+      }, 1500); // Increased timeout to ensure session is fully established
 
     } catch (error) {
       console.error('Login error:', error);

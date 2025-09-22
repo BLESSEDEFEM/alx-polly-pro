@@ -1,9 +1,10 @@
-/**
- * @fileoverview Login page component for user authentication
- * Provides a dedicated page for existing users to sign into their accounts
- */
+'use client';
 
 import { LoginForm } from '@/components/auth/login-form';
+import { useSearchParams } from 'next/navigation';
+import { AuthDebug } from '@/components/debug/auth-debug';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 
 /**
  * Login page component
@@ -20,12 +21,16 @@ import { LoginForm } from '@/components/auth/login-form';
  * @returns JSX element containing the login page layout
  * 
  * @example
- * ```tsx
  * // This page is automatically rendered at "/auth/login"
  * // Users can navigate here to sign into their existing accounts
- * ```
  */
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/';
+  const [showDebug, setShowDebug] = useState(false);
+  
+  console.log('LoginPage - Redirect parameter:', redirectTo);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md">
@@ -36,19 +41,24 @@ export default function LoginPage() {
         </div>
         
         {/* Login form component handles authentication logic */}
-        <LoginForm />
+        <LoginForm redirectTo={redirectTo} />
+        
+        <div className="mt-8 text-center">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setShowDebug(!showDebug)}
+          >
+            {showDebug ? 'Hide Debug Info' : 'Show Debug Info'}
+          </Button>
+          
+          {showDebug && (
+            <div className="mt-4">
+              <AuthDebug />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
-
-/**
- * Page metadata for SEO and browser display
- * 
- * Defines the page title and description for search engines and browser tabs.
- * This metadata helps with SEO and provides context when the page is shared.
- */
-export const metadata = {
-  title: 'Sign In - Polly Pro',
-  description: 'Sign in to your Polly Pro account to create and manage polls.',
-};

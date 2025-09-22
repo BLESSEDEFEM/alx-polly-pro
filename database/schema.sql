@@ -258,19 +258,11 @@ CREATE POLICY "Users can view their own votes" ON public.votes
 -- INDEXES FOR PERFORMANCE
 -- ============================================================================
 
--- Create indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_polls_created_by ON public.polls(created_by);
-CREATE INDEX IF NOT EXISTS idx_polls_created_at ON public.polls(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_polls_is_active ON public.polls(is_active);
-CREATE INDEX IF NOT EXISTS idx_polls_expires_at ON public.polls(expires_at);
+-- Indexes for better query performance
+-- Note: Removed unused indexes based on Supabase Performance Advisor analysis
+-- Only keeping indexes that are actually used by application queries
 
-CREATE INDEX IF NOT EXISTS idx_poll_options_poll_id ON public.poll_options(poll_id);
-CREATE INDEX IF NOT EXISTS idx_poll_options_vote_count ON public.poll_options(vote_count DESC);
-
-CREATE INDEX IF NOT EXISTS idx_votes_poll_id ON public.votes(poll_id);
-CREATE INDEX IF NOT EXISTS idx_votes_option_id ON public.votes(option_id);
-CREATE INDEX IF NOT EXISTS idx_votes_user_id ON public.votes(user_id);
-CREATE INDEX IF NOT EXISTS idx_votes_created_at ON public.votes(created_at DESC);
+CREATE INDEX idx_poll_options_poll_id ON poll_options(poll_id);
 
 -- ============================================================================
 -- FUNCTIONS AND TRIGGERS
