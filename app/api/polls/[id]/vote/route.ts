@@ -75,6 +75,15 @@ export async function POST(
 
     if (insertError) {
       console.error('Error casting vote:', insertError);
+      
+      // Check if this is a duplicate vote constraint violation
+      if (insertError.code === '23505' || insertError.message.includes('duplicate key value violates unique constraint')) {
+        return NextResponse.json({ 
+          success: false,
+          message: 'Sorry, multiple votes not allowed on this poll'
+        }, { status: 409 }); // 409 Conflict for duplicate resource
+      }
+      
       return NextResponse.json({ 
         success: false,
         message: 'Failed to cast vote', 

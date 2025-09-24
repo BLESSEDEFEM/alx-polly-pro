@@ -2,9 +2,6 @@
 
 import { LoginForm } from '@/components/auth/login-form';
 import { useSearchParams } from 'next/navigation';
-import { AuthDebug } from '@/components/debug/auth-debug';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 
 /**
  * Login page component
@@ -27,7 +24,6 @@ import { Button } from '@/components/ui/button';
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/';
-  const [showDebug, setShowDebug] = useState(false);
   
   console.log('LoginPage - Redirect parameter:', redirectTo);
 
@@ -42,22 +38,6 @@ export default function LoginPage() {
         
         {/* Login form component handles authentication logic */}
         <LoginForm redirectTo={redirectTo} />
-        
-        <div className="mt-8 text-center">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setShowDebug(!showDebug)}
-          >
-            {showDebug ? 'Hide Debug Info' : 'Show Debug Info'}
-          </Button>
-          
-          {showDebug && (
-            <div className="mt-4">
-              <AuthDebug />
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
