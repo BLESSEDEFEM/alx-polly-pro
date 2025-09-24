@@ -30,10 +30,7 @@ interface Comment {
   user: {
     id: string
     email: string
-    user_metadata: {
-      full_name?: string
-      avatar_url?: string
-    }
+    full_name?: string
   }
   replies?: Comment[]
 }
@@ -121,7 +118,7 @@ export function CommentItem({ comment, onCommentUpdated, depth = 0 }: CommentIte
   }
 
   const getUserDisplayName = () => {
-    return comment.user.user_metadata?.full_name || comment.user.email.split('@')[0]
+    return comment.user.full_name || comment.user.email.split('@')[0]
   }
 
   return (

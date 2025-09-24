@@ -20,10 +20,7 @@ interface Comment {
   user: {
     id: string
     email: string
-    user_metadata: {
-      full_name?: string
-      avatar_url?: string
-    }
+    full_name?: string
   }
   replies?: Comment[]
 }
@@ -44,25 +41,45 @@ export function CommentList({ pollId }: CommentListProps) {
       // Fetch all comments for this poll
       const { data: commentsData, error: commentsError } = await supabase
         .from('comments')
-        .select(`
-          *,
-          user:user_id (
-            id,
-            email,
-            user_metadata
-          )
-        `)
+        .select('*')
         .eq('poll_id', pollId)
         .order('created_at', { ascending: true })
 
       if (commentsError) throw commentsError
+
+      // Fetch user profiles for all unique user IDs
+      const userIds = [...new Set(commentsData?.map(comment => comment.user_id) || [])]
+      const { data: userProfiles, error: userError } = await supabase
+        .from('user_profiles')
+        .select('id, email, full_name')
+        .in('id', userIds)
+
+      if (userError) {
+        console.warn('Could not fetch user profiles:', userError)
+      }
+
+      // Create a map of user profiles for quick lookup
+      const userMap = new Map()
+      userProfiles?.forEach(user => {
+        userMap.set(user.id, user)
+      })
+
+      // Attach user data to comments
+      const commentsWithUsers = commentsData?.map(comment => ({
+        ...comment,
+        user: userMap.get(comment.user_id) || {
+          id: comment.user_id,
+          email: 'Unknown User',
+          full_name: 'Unknown User'
+        }
+      })) || []
 
       // Organize comments into a tree structure
       const commentMap = new Map<string, Comment>()
       const rootComments: Comment[] = []
 
       // First pass: create all comment objects
-      commentsData?.forEach((comment) => {
+      commentsWithUsers?.forEach((comment) => {
         const commentObj: Comment = {
           ...comment,
           replies: []
@@ -71,7 +88,7 @@ export function CommentList({ pollId }: CommentListProps) {
       })
 
       // Second pass: organize into tree structure
-      commentsData?.forEach((comment) => {
+      commentsWithUsers?.forEach((comment) => {
         const commentObj = commentMap.get(comment.id)!
         
         if (comment.parent_id) {
