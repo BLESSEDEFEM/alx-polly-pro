@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/providers/auth-provider';
-import { supabase } from '@/lib/supabase';
+import { adaptiveClient } from '@/lib/adaptive-client';
 
 /**
  * User profile interface extending basic user data with role information
@@ -92,17 +92,8 @@ export function useUserProfile(): UseUserProfileReturn {
     setError(null);
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      setProfile(data);
+      const profileData = await adaptiveClient.user.getProfile(user.id);
+      setProfile(profileData);
     } catch (err) {
       console.error('Error fetching user profile:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch profile');
@@ -130,18 +121,8 @@ export function useUserProfile(): UseUserProfileReturn {
     setError(null);
 
     try {
-      const { data, error: updateError } = await supabase
-        .from('user_profiles')
-        .update(updates)
-        .eq('id', user.id)
-        .select()
-        .single();
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      setProfile(data);
+      const updatedProfile = await adaptiveClient.user.updateProfile(user.id, updates);
+      setProfile(updatedProfile);
     } catch (err) {
       console.error('Error updating user profile:', err);
       setError(err instanceof Error ? err.message : 'Failed to update profile');

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
 import { useAuth } from '@/hooks/use-auth'
-import { supabase } from '@/lib/supabase'
+import { adaptiveClient } from '@/lib/adaptive-client'
 import { toast } from 'sonner'
 
 interface CommentFormProps {
@@ -45,16 +45,12 @@ export function CommentForm({
     setIsSubmitting(true)
 
     try {
-      const { error } = await supabase
-        .from('comments')
-        .insert({
-          poll_id: pollId,
-          user_id: user.id,
-          parent_id: parentId || null,
-          content: content.trim()
-        })
-
-      if (error) throw error
+      await adaptiveClient.comments.createComment({
+        poll_id: pollId,
+        user_id: user.id,
+        parent_id: parentId || null,
+        content: content.trim()
+      })
 
       setContent('')
       toast.success('Comment posted successfully!')

@@ -14,8 +14,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Eye, EyeOff, Mail, Lock, CheckCircle2, AlertCircle } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/providers/auth-provider';
+import { adaptiveClient } from '@/lib/adaptive-client';
 import React from 'react';
 
 /**
@@ -156,27 +156,43 @@ export const LoginForm = React.memo(function LoginForm({ onSuccess, redirectTo =
 
     try {
       console.log('Login form - Starting login process');
-      // Use our custom API endpoint for login
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email.trim(),
-          password: formData.password,
-        }),
+      
+      // Use adaptive client for authentication
+      console.log('Attempting authentication with adaptive client...');
+      const result = await adaptiveClient.auth.login({
+        email: formData.email.trim(),
+        password: formData.password
       });
-
-      const result = await response.json();
-      console.log('Login form - API response received');
-
-      if (!response.ok) {
-        // Handle API errors with better UX
-        let errorMessage = result.message || 'An error occurred during login';
+      
+      if (result.success) {
+        console.log('Authentication successful');
+        setIsSuccess(true);
+        
+        // Store the redirect URL directly in sessionStorage for reliability
+        const finalRedirect = redirectTo || '/';
+        sessionStorage.setItem('authRedirectUrl', finalRedirect);
+        console.log('Stored redirect URL in sessionStorage:', finalRedirect);
+        
+        // Refresh the auth context to update the UI
+        await refreshSession();
+        
+        // Call onSuccess callback if provided
+        if (onSuccess) {
+          onSuccess();
+        }
+        
+        // Brief delay to show success state, then redirect
+        setTimeout(() => {
+          router.push(finalRedirect);
+        }, 1500);
+        
+        return;
+      } else {
+        // Handle authentication errors with better UX
+        let errorMessage = result.error || 'An error occurred during login';
         
         // Map common error messages to user-friendly ones
-        if (errorMessage.includes('Invalid login credentials')) {
+        if (errorMessage.includes('Invalid login credentials') || errorMessage.includes('Invalid credentials')) {
           errorMessage = 'Invalid email or password. Please check your credentials and try again.';
         } else if (errorMessage.includes('Email not confirmed')) {
           errorMessage = 'Please check your email and click the confirmation link before signing in.';
@@ -187,64 +203,6 @@ export const LoginForm = React.memo(function LoginForm({ onSuccess, redirectTo =
         setErrors({ general: errorMessage });
         return;
       }
-
-      // Success state with visual feedback
-      setIsSuccess(true);
-      
-      console.log('Login successful:', result.user?.email);
-      console.log('Redirect URL:', redirectTo);
-      
-      // Store the redirect URL directly in sessionStorage for reliability
-      const finalRedirect = redirectTo || '/';
-      sessionStorage.setItem('authRedirectUrl', finalRedirect);
-      console.log('Stored redirect URL in sessionStorage:', finalRedirect);
-      
-      // Set a cookie as a backup mechanism for the redirect
-      document.cookie = `authRedirect=${encodeURIComponent(finalRedirect)};path=/;max-age=300`;
-      console.log('Set backup redirect cookie');
-      
-      // Brief delay to show success state and ensure session is established
-      setTimeout(async () => {
-        try {
-          // Refresh the auth context to update the UI and wait for completion
-          console.log('Refreshing session...');
-          await refreshSession();
-          console.log('Session refreshed successfully');
-          
-          // Call success callback if provided
-          if (onSuccess) {
-            console.log('Calling onSuccess callback');
-            onSuccess();
-          } else {
-            console.log('Redirecting to:', finalRedirect);
-            
-            // Force a complete page reload with the redirect URL
-            // Use Next.js router for proper client-side navigation
-            console.log('Using Next.js router for navigation');
-            
-            // Use Next.js router for client-side navigation
-            router.push(finalRedirect);
-            
-            // As a fallback, if the navigation doesn't happen within 1 second,
-            // try an alternative navigation method
-            setTimeout(() => {
-              console.log('Fallback navigation triggered');
-              router.push(finalRedirect);
-            }, 1000);
-          }
-        } catch (error) {
-          console.error('Error refreshing session:', error);
-          // Still redirect even if refresh fails, as login was successful
-          console.log('Redirecting despite refresh error to:', finalRedirect);
-          
-          // Use Next.js router for proper client-side navigation
-            router.push(finalRedirect);
-            
-            setTimeout(() => {
-              router.push(finalRedirect);
-            }, 1000);
-        }
-      }, 1500); // Increased timeout to ensure session is fully established
 
     } catch (error) {
       console.error('Login error:', error);

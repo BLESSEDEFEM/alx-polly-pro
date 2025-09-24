@@ -65,6 +65,9 @@ class ApiClient {
       const response = await fetch(url, config);
       const data = await response.json();
 
+      console.log('API Client: Raw response status:', response.status);
+      console.log('API Client: Raw response data:', data);
+
       if (!response.ok) {
         return {
           success: false,
@@ -72,10 +75,13 @@ class ApiClient {
         };
       }
 
-      return {
+      const wrappedResponse = {
         success: true,
-        ...data, // Spread the response data to include message, etc. at the top level
+        data: data, // Wrap the response data in a data property
       };
+      
+      console.log('API Client: Wrapped response:', wrappedResponse);
+      return wrappedResponse;
     } catch (error) {
       return {
         success: false,

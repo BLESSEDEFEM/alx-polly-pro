@@ -152,7 +152,5 @@ CREATE POLICY "Users can delete their own comments OR admins/moderators can dele
 -- ============================================================================
 -- INDEXES
 -- ============================================================================
--- Note: Removed unused indexes based on Supabase Performance Advisor analysis
--- Only keeping indexes that are actually used by application queries
 
 CREATE INDEX IF NOT EXISTS idx_poll_options_poll_id ON public.poll_options(poll_id);

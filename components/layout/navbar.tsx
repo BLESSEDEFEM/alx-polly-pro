@@ -6,18 +6,18 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import { useUserProfile } from '@/hooks/use-user-profile';
-import { supabase } from '@/lib/supabase';
+import { adaptiveClient } from '@/lib/adaptive-client';
 
 export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { isAdmin } = useUserProfile();
   const router = useRouter();
   const pathname = usePathname();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/');
+    await signOut();
+    router.push('/auth/login');
   };
 
   const isActivePath = (path: string) => {
@@ -71,7 +71,7 @@ export function Navbar() {
             {user ? (
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-gray-600">
-                  Welcome, {user?.user_metadata.full_name}
+                  Welcome, {user?.name || user?.username || user?.email}
                 </span>
                 <Button variant="outline" size="sm" onClick={handleLogout}>
                   Sign Out
@@ -155,7 +155,7 @@ export function Navbar() {
                 {user ? (
                   <div className="space-y-2">
                     <p className="text-sm text-gray-600">
-                      Welcome, {user?.user_metadata.full_name}
+                      Welcome, {user?.name || user?.username || user?.email}
                     </p>
                     <Button
                       variant="outline"

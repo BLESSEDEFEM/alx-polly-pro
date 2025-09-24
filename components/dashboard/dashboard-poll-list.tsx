@@ -39,7 +39,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Poll } from '@/types';
-import { supabase } from '@/lib/supabase';
+import { adaptiveClient } from '@/lib/adaptive-client';
 import { formatDistanceToNow } from 'date-fns';
 
 interface DashboardPollListProps {
@@ -76,22 +76,7 @@ export function DashboardPollList({ userId }: DashboardPollListProps) {
         setIsLoading(true);
         setError(null);
 
-        const { data: pollsData, error: pollsError } = await supabase
-          .from('polls')
-          .select(`
-            *,
-            poll_options (
-              id,
-              text,
-              vote_count
-            )
-          `)
-          .eq('created_by', userId)
-          .order('created_at', { ascending: false });
-
-        if (pollsError) {
-          throw pollsError;
-        }
+        const pollsData = await adaptiveClient.polls.getUserPolls(userId);
 
         // Transform the data to match our Poll type
         const transformedPolls: Poll[] = pollsData?.map(poll => ({
@@ -101,11 +86,13 @@ export function DashboardPollList({ userId }: DashboardPollListProps) {
           options: poll.poll_options?.map((option: any) => ({
             id: option.id,
             text: option.text,
-            votes: option.vote_count || 0
+            votes: option.vote_count || 0,
+            pollId: poll.id
           })) || [],
           isAnonymous: poll.is_anonymous,
           isActive: poll.is_active,
-          category: poll.poll_category,
+          allowMultipleVotes: poll.allow_multiple_votes || false,
+          pollCategory: poll.poll_category || 'general',
           visibility: poll.poll_visibility,
           createdBy: poll.created_by,
           createdAt: poll.created_at,
@@ -139,15 +126,7 @@ export function DashboardPollList({ userId }: DashboardPollListProps) {
     try {
       setIsDeleting(true);
 
-      const { error } = await supabase
-        .from('polls')
-        .delete()
-        .eq('id', pollToDelete.id)
-        .eq('created_by', userId); // Extra security check
-
-      if (error) {
-        throw error;
-      }
+      await adaptiveClient.polls.deletePoll(pollToDelete.id);
 
       // Remove the poll from local state
       setPolls(polls.filter(p => p.id !== pollToDelete.id));
@@ -253,8 +232,8 @@ export function DashboardPollList({ userId }: DashboardPollListProps) {
                       <Badge variant="outline">
                         {poll.visibility === 'public' ? 'Public' : 'Private'}
                       </Badge>
-                      {poll.category && (
-                        <Badge variant="outline">{poll.category}</Badge>
+                      {poll.pollCategory && (
+                        <Badge variant="outline">{poll.pollCategory}</Badge>
                       )}
                     </div>
                   </div>

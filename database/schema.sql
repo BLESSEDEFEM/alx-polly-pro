@@ -259,8 +259,6 @@ CREATE POLICY "Users can view their own votes" ON public.votes
 -- ============================================================================
 
 -- Indexes for better query performance
--- Note: Removed unused indexes based on Supabase Performance Advisor analysis
--- Only keeping indexes that are actually used by application queries
 
 CREATE INDEX idx_poll_options_poll_id ON poll_options(poll_id);
 

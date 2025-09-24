@@ -189,7 +189,7 @@ export const SuccessTransition: React.FC<SuccessTransitionProps> = ({
   onHide
 }) => {
   const [isVisible, setIsVisible] = useState(show);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (show) {

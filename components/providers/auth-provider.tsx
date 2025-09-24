@@ -1,15 +1,38 @@
 /**
  * @fileoverview Authentication context provider for managing user authentication state
  * Provides authentication context and state management throughout the application
+ * Enhanced for Polly-API compatibility with adaptive backend support
  */
 
 'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { Session, User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { adaptiveClient } from '@/lib/adaptive-client';
 import { getCookie, deleteCookie } from '@/lib/utils';
+
+/**
+ * Generic user interface for Polly-API compatibility
+ */
+interface PollyUser {
+  id: string;
+  email: string;
+  username?: string;
+  name?: string;
+  created_at?: string;
+  last_sign_in_at?: string;
+}
+
+/**
+ * Generic session interface for Polly-API compatibility
+ */
+interface PollySession {
+  access_token?: string;
+  token_type?: string;
+  expires_at?: string;
+  expires_in?: number;
+  user?: PollyUser;
+}
 
 /**
  * Authentication context type definition
@@ -19,11 +42,13 @@ import { getCookie, deleteCookie } from '@/lib/utils';
  */
 interface AuthContextType {
   /** Current authenticated user object, null if not authenticated */
-  user: User | null;
+  user: PollyUser | null;
   /** Current session object containing tokens and user data */
-  session: Session | null;
+  session: PollySession | null;
   /** Loading state for initial authentication check */
   isLoading: boolean;
+  /** Loading state for initial authentication check (alias for compatibility) */
+  loading: boolean;
   /** Function to sign out the current user */
   signOut: () => Promise<void>;
   /** Function to refresh the current session */
@@ -74,8 +99,8 @@ interface AuthProviderProps {
  * ```
  */
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<PollyUser | null>(null);
+  const [session, setSession] = useState<PollySession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -85,8 +110,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
    */
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
-      // State will be updated automatically by the auth state change listener
+      // Use adaptive client for logout
+      const result = await adaptiveClient.auth.logout();
+      if (!result.success) {
+        console.error('Error signing out:', result.error);
+      }
+      
+      // Clear local state
+      setSession(null);
+      setUser(null);
+      
+      // Clear any stored auth data
+      sessionStorage.removeItem('authRedirect');
+      sessionStorage.removeItem('authRedirectPath');
+      localStorage.removeItem('authRedirectPath');
+      deleteCookie('authRedirect');
+      
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -99,32 +138,50 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const refreshSession = useCallback(async () => {
     console.log('Refreshing session...');
     try {
-      // First try to refresh the session
-      const { data, error } = await supabase.auth.refreshSession();
+      // Use adaptive client to get session
+      const result = await adaptiveClient.auth.getSession();
       
-      if (error) {
-        console.error('Error refreshing session:', error);
-        
-        // If refresh fails, try to get the current session as fallback
-        console.log('Falling back to getSession...');
-        const { data: fallbackData, error: fallbackError } = await supabase.auth.getSession();
-        
-        if (fallbackError) {
-          console.error('Error getting session:', fallbackError);
-          throw fallbackError;
-        }
-        
-        console.log('Session retrieved via fallback');
-        setSession(fallbackData.session);
-        setUser(fallbackData.session?.user ?? null);
+      if (!result.success) {
+        console.error('Error refreshing session:', result.error);
+        setSession(null);
+        setUser(null);
         return;
       }
       
-      console.log('Session refreshed successfully:', data.session?.user?.email);
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
+      // Handle session data from adaptive client
+      if (result.data?.session?.user || (result.data?.authenticated && result.data?.user)) {
+        const sessionData = result.data.session || result.data;
+        const userData = sessionData.user || result.data.user;
+        
+        console.log('Session active for user:', userData.email);
+        
+        // Create standardized session object
+        const pollySession: PollySession = {
+          access_token: sessionData.access_token || result.data.token || result.data.access_token,
+          token_type: sessionData.token_type || result.data.token_type || 'Bearer',
+          expires_at: sessionData.expires_at || result.data.expires_at,
+          expires_in: sessionData.expires_in || result.data.expires_in,
+          user: {
+            id: userData.id,
+            email: userData.email,
+            username: userData.username || userData.user_metadata?.username,
+            name: userData.name || userData.user_metadata?.full_name || userData.user_metadata?.name,
+            created_at: userData.created_at,
+            last_sign_in_at: userData.last_sign_in_at,
+          }
+        };
+        
+        setSession(pollySession);
+        setUser(pollySession.user!);
+      } else {
+        console.log('No active session found');
+        setSession(null);
+        setUser(null);
+      }
     } catch (error) {
       console.error('Error in refreshSession:', error);
+      setSession(null);
+      setUser(null);
       throw error;
     }
   }, []);
@@ -164,36 +221,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // First check for stored redirects
         checkStoredRedirects();
         
-        // Configure session persistence
-        const { data: persistenceData, error: persistenceError } = await supabase.auth.getSession();
+        // Get the current session using adaptive client
+        await refreshSession();
         
-        if (persistenceError) {
-          console.error('Error configuring session persistence:', persistenceError);
-        } else {
-          console.log('Session persistence configured:', !!persistenceData.session);
-        }
-        
-        // Get the current session
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Error getting session:', error);
-        } else {
-          console.log('AuthProvider - Initial session loaded:', !!session, session?.user?.email);
-          console.log('AuthProvider - User authenticated:', !!session?.user);
-          setSession(session);
-          setUser(session?.user ?? null);
-          
-          // If we have a session but there's a stored redirect, handle it
-          if (session && (sessionStorage.getItem('authRedirectPath') || localStorage.getItem('authRedirectPath'))) {
-            console.log('Found session and stored redirect, refreshing session');
-            try {
-              await refreshSession();
-            } catch (refreshError) {
-              console.error('Error refreshing session with stored redirect:', refreshError);
-            }
-          }
-        }
       } catch (error) {
         console.error('Error in getSession:', error);
       } finally {
@@ -204,63 +234,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
     getSession();
 
     /**
-     * Listen for auth state changes
-     * This handles login, logout, token refresh, and other auth events
+     * Set up periodic session refresh
+     * This ensures the session stays valid and handles token refresh
      */
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-        
-        // Update local state with the new session
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // For login events, ensure we have the latest session data
-        if (event === 'SIGNED_IN') {
-          console.log('User signed in, refreshing session data');
-          try {
-            // Check for stored redirects
-            checkStoredRedirects();
-            
-            // Check for stored redirect URL
-            const storedRedirect = sessionStorage.getItem('authRedirect');
-            const cookieRedirect = getCookie('authRedirect');
-            const redirectUrl = storedRedirect || cookieRedirect;
-            
-            if (redirectUrl) {
-              console.log('Found redirect URL:', redirectUrl);
-              // Clean up stored redirects
-              sessionStorage.removeItem('authRedirect');
-              deleteCookie('authRedirect');
-              
-              // Use router for navigation instead of window.location
-              setTimeout(() => {
-                router.push(redirectUrl);
-              }, 100);
-            }
-            
-            await refreshSession();
-          } catch (error) {
-            console.error('Error refreshing session after sign in:', error);
-          }
-        }
-        
-        // Set loading to false after any auth state change
-        setIsLoading(false);
+    const sessionRefreshInterval = setInterval(async () => {
+      try {
+        await refreshSession();
+      } catch (error) {
+        console.error('Error in periodic session refresh:', error);
       }
-    );
+    }, 5 * 60 * 1000); // Refresh every 5 minutes
 
-    // Cleanup subscription on unmount
+    // Cleanup interval on unmount
     return () => {
-      authListener.subscription.unsubscribe();
+      clearInterval(sessionRefreshInterval);
     };
-  }, []); // Remove refreshSession from dependencies to prevent infinite loop
+  }, [refreshSession]);
 
   // Context value object
   const value: AuthContextType = {
     user,
     session,
     isLoading,
+    loading: isLoading, // Alias for compatibility
     signOut,
     refreshSession,
   };

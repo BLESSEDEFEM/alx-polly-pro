@@ -57,6 +57,8 @@ export interface Poll {
   isAnonymous: boolean;
   /** Category of the poll for organization and filtering */
   pollCategory: string;
+  /** Visibility setting for the poll (public or private) */
+  visibility?: string;
 }
 
 /**

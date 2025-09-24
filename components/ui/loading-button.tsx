@@ -18,7 +18,7 @@ export type LoadingButtonState = 'idle' | 'loading' | 'success' | 'error';
 /**
  * Loading button props interface
  */
-interface LoadingButtonProps extends Omit<ButtonProps, 'disabled'> {
+interface LoadingButtonProps extends ButtonProps {
   /** Button loading state */
   loading?: boolean;
   /** Button state for enhanced feedback */

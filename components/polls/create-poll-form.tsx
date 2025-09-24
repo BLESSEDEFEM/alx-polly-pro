@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { createPoll } from '@/lib/api';
 import { CreatePollFormData } from '@/types';
+import { fastAPIClient } from '@/lib/fastapi-client';
 
 /**
  * Form data interface for poll creation
@@ -255,6 +256,26 @@ export function CreatePollForm() {
         expiresAt = new Date(`${expiryDate}T${expiryTime}`);
       }
 
+      // Try FastAPI first
+      console.log('Attempting to create poll with FastAPI...');
+      const fastAPIResult = await fastAPIClient.createPoll(formData.title.trim(), validOptions);
+      
+      if (fastAPIResult.success && fastAPIResult.data) {
+        console.log('FastAPI poll creation successful:', fastAPIResult.data);
+        setIsSuccess(true);
+        
+        // Brief delay to show success state, then navigate to the poll page
+        setTimeout(() => {
+          console.log('Navigating to FastAPI poll ID:', fastAPIResult.data?.id);
+          router.push(`/polls/${fastAPIResult.data?.id}`);
+        }, 1500);
+        
+        return;
+      }
+      
+      console.log('FastAPI poll creation failed, falling back to existing API...');
+
+      // Fallback to existing API
       const pollData: CreatePollFormData = {
         title: formData.title.trim(),
         description: formData.description?.trim() || undefined,
@@ -265,15 +286,28 @@ export function CreatePollForm() {
         pollCategory: formData.pollCategory,
       };
 
+      console.log('Frontend: Poll data being sent:', pollData);
+      console.log('Frontend: Valid options:', validOptions);
+      console.log('Frontend: Options length:', validOptions.length);
+
       const newPoll = await createPoll(pollData);
+      console.log('Poll created, navigating to:', newPoll); // Debug logging
       
-      // Success state with visual feedback
-      setIsSuccess(true);
-      
-      // Brief delay to show success state, then navigate to the poll page
-      setTimeout(() => {
-        router.push(`/polls/${newPoll.id}`);
-      }, 1500);
+      if (newPoll.success && newPoll.data) {
+        console.log('Poll ID:', (newPoll.data as any).id); // Debug logging
+        
+        // Success state with visual feedback
+        setIsSuccess(true);
+        
+        // Brief delay to show success state, then navigate to the poll page
+        setTimeout(() => {
+          console.log('Navigating to poll ID:', (newPoll.data as any).id); // Debug logging
+          router.push(`/polls/${(newPoll.data as any).id}`);
+        }, 1500);
+      } else {
+        console.error('Failed to create poll:', newPoll.error);
+        setErrors({ general: newPoll.error || 'Failed to create poll' });
+      }
 
     } catch (error) {
       setErrors({

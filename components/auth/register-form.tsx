@@ -14,8 +14,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Eye, EyeOff, CheckCircle2, AlertCircle, User, Mail, Lock, Shield } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/providers/auth-provider';
+import { adaptiveClient } from '@/lib/adaptive-client';
 import React from 'react';
 
 /**
@@ -214,29 +214,22 @@ export const RegisterForm = React.memo(function RegisterForm({ onSuccess, redire
     setIsLoading(true);
 
     try {
-      // Use our custom API endpoint for registration
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          email: formData.email.trim(),
-          password: formData.password,
-        }),
+      // Use adaptive client for registration
+      console.log('Registration form - Starting registration process');
+      const result = await adaptiveClient.auth.register({
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        password: formData.password,
       });
 
-      const result = await response.json();
-
-      if (!response.ok) {
+      if (!result.success) {
         // Handle API errors with better UX
-        let errorMessage = result.message || 'An error occurred during registration';
+        let errorMessage = result.error || 'An error occurred during registration';
         
         // Map common error messages to user-friendly ones
-        if (errorMessage.includes('User already registered')) {
+        if (errorMessage.includes('User already registered') || errorMessage.includes('already exists')) {
           errorMessage = 'An account with this email already exists. Please try logging in instead.';
-        } else if (errorMessage.includes('Password should be at least')) {
+        } else if (errorMessage.includes('Password should be at least') || errorMessage.includes('password')) {
           errorMessage = 'Password must be at least 6 characters long.';
         } else if (errorMessage.includes('Invalid email')) {
           errorMessage = 'Please enter a valid email address.';
@@ -252,7 +245,7 @@ export const RegisterForm = React.memo(function RegisterForm({ onSuccess, redire
       
       // Brief delay to show success state
       timeoutRef.current = setTimeout(async () => {
-        console.log('Registration successful:', result.user?.email);
+        console.log('Registration successful:', result.data?.user?.email || formData.email);
         
         // Store the redirect URL for reliability
         const finalRedirect = redirectTo || '/';

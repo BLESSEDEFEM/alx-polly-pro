@@ -9,7 +9,6 @@ This directory contains all database-related files for the ALX Polly Pro applica
 - `create-user-profiles.sql` - User profiles table creation
 - `create-polls-tables.sql` - Polls and related tables creation
 - `fix-rls-policies.sql` - **CRITICAL FIX** for infinite recursion in RLS policies
-- `cleanup-unused-indexes.sql` - Database maintenance script
 
 ## 🚨 IMPORTANT: RLS Policy Fix
 
@@ -95,7 +94,6 @@ EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM public.user_profiles LIMIT 1;
 ### Regular Tasks
 1. Monitor query performance with `EXPLAIN ANALYZE`
 2. Update statistics: `ANALYZE;`
-3. Check for unused indexes with `cleanup-unused-indexes.sql`
 
 ### Troubleshooting
 

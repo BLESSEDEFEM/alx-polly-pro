@@ -42,6 +42,7 @@ import { pollsAPI } from '@/lib/api';
 export function usePolls() {
   const [polls, setPolls] = useState<Poll[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPolls();
@@ -58,13 +59,18 @@ export function usePolls() {
   const fetchPolls = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       const response = await pollsAPI.getPolls();
       if (response.success) {
         setPolls(response.data);
       } else {
-        console.error('Failed to fetch polls:', response.error);
+        const errorMessage = response.error || 'Failed to fetch polls';
+        setError(errorMessage);
+        console.error('Failed to fetch polls:', errorMessage);
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch polls';
+      setError(errorMessage);
       console.error('Failed to fetch polls:', error);
     } finally {
       setIsLoading(false);
@@ -102,8 +108,10 @@ export function usePolls() {
   const createPoll = async (pollData: CreatePollData): Promise<Poll> => {
     try {
       const response = await pollsAPI.createPoll(pollData);
+      console.log('Create poll response:', response); // Debug logging
       if (response.success) {
         const newPoll = response.data;
+        console.log('New poll data:', newPoll); // Debug logging
         setPolls(prev => [newPoll, ...prev]);
         return newPoll;
       } else {
@@ -191,6 +199,7 @@ export function usePolls() {
   return {
     polls,
     isLoading,
+    error,
     createPoll,
     votePoll,
     refreshPolls,

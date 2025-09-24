@@ -63,10 +63,19 @@ export async function POST(request: Request) {
   const data = await request.json();
   const { title, description, options, expiresAt, allowMultipleVotes, isAnonymous, pollCategory } = data;
 
+  console.log('Backend: Received poll data:', data);
+  console.log('Backend: Title:', title);
+  console.log('Backend: Description:', description);
+  console.log('Backend: Options:', options);
+  console.log('Backend: Options type:', typeof options);
+  console.log('Backend: Options is array:', Array.isArray(options));
+  console.log('Backend: Options length:', options?.length);
+
   // Validate required fields
-  if (!title || !description || !options || !Array.isArray(options) || options.length < 2) {
+  if (!title || !options || !Array.isArray(options) || options.length < 2) {
+    console.log('Backend: Validation failed - missing required fields');
     return NextResponse.json(
-      { message: 'Title, description, and at least 2 options are required' },
+      { message: 'Title and at least 2 options are required' },
       { status: 400 }
     );
   }
@@ -127,6 +136,10 @@ export async function POST(request: Request) {
     isAnonymous: newPollData.is_anonymous,
     pollCategory: newPollData.poll_category,
   };
+
+  console.log('Backend: Created poll data from Supabase:', newPollData);
+  console.log('Backend: Returning poll to frontend:', newPoll);
+  console.log('Backend: Poll ID being returned:', newPoll.id);
 
   return NextResponse.json(newPoll, { status: 201 });
 }

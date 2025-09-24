@@ -12,16 +12,20 @@ interface PollCardProps {
   poll: Poll;
   onVote?: (pollId: string, optionIds: string[]) => void;
   onViewDetails?: (pollId: string) => void;
+  onDelete?: (pollId: string) => void;
   showVoteButton?: boolean;
   showResults?: boolean;
+  showActions?: boolean;
 }
 
 export function PollCard({ 
   poll, 
   onVote, 
   onViewDetails, 
+  onDelete,
   showVoteButton = true,
-  showResults = false 
+  showResults = false,
+  showActions = false
 }: PollCardProps) {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [isVoting, setIsVoting] = useState(false);

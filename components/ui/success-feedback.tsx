@@ -73,9 +73,10 @@ const CheckmarkIcon: React.FC<{ className?: string }> = ({ className = '' }) => 
 /**
  * Celebration icon component
  */
-const CelebrationIcon: React.FC<{ className?: string }> = ({ className = '' }) => (
+const CelebrationIcon: React.FC<{ className?: string; style?: React.CSSProperties }> = ({ className = '', style }) => (
   <svg
     className={cn('w-6 h-6', className)}
+    style={style}
     fill="none"
     stroke="currentColor"
     viewBox="0 0 24 24"
@@ -110,7 +111,7 @@ export const CheckmarkSuccess: React.FC<SuccessFeedbackProps> = ({
   onHide
 }) => {
   const [isVisible, setIsVisible] = useState(show);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (show) {
@@ -190,7 +191,7 @@ export const CelebrationSuccess: React.FC<SuccessFeedbackProps> = ({
 }) => {
   const [isVisible, setIsVisible] = useState(show);
   const [showConfetti, setShowConfetti] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (show) {
@@ -412,7 +413,7 @@ export const ToastSuccess: React.FC<SuccessFeedbackProps & {
   onActionClick
 }) => {
   const [isVisible, setIsVisible] = useState(show);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (show) {

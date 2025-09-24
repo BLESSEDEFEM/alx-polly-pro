@@ -5,13 +5,22 @@ A modern, feature-rich polling platform built with Next.js 15, TypeScript, Supab
 ## 🚀 Features
 
 ### Authentication System
-- **Complete Supabase Integration**: Full authentication flow with email/password
+- **Hybrid Authentication**: Supports both FastAPI and Supabase authentication
+- **FastAPI Integration**: Primary authentication through custom FastAPI backend
+- **Supabase Fallback**: Automatic fallback to Supabase for enhanced reliability
 - **Secure Session Management**: Server-side and client-side session handling
 - **Form Validation**: Comprehensive client-side validation with real-time feedback
 - **Password Security**: Password strength indicators and visibility toggles
 - **Email Confirmation**: Support for email verification workflows
 - **Error Handling**: Detailed error messages and user-friendly feedback
 - **Responsive Design**: Mobile-first authentication forms
+
+### Polling System
+- **FastAPI-Powered Polls**: Primary poll management through FastAPI backend
+- **Real-time Voting**: Instant vote casting and result updates
+- **Poll Creation**: Rich poll creation interface with multiple options
+- **Results Visualization**: Comprehensive poll results with statistics
+- **User Management**: User registration and authentication for poll ownership
 
 ### User Interface
 - **Modern Design**: Built with shadcn/ui components and Tailwind CSS
@@ -30,16 +39,36 @@ A modern, feature-rich polling platform built with Next.js 15, TypeScript, Supab
 - **State Management**: React Context API
 
 ### Backend Services
-- **Primary Database**: Supabase PostgreSQL
-- **Authentication**: Supabase Auth
-- **API Backend**: FastAPI (Python)
-- **Client Libraries**: Custom FastAPI client with requests library
+- **Primary API**: FastAPI (Python) - Handles authentication, polls, and voting
+- **Secondary Database**: Supabase PostgreSQL (fallback)
+- **Authentication**: Hybrid FastAPI + Supabase Auth
+- **Client Libraries**: Custom FastAPI client with TypeScript adapter
 
 ### Development Tools
 - **Testing**: Jest with React Testing Library
 - **Linting**: ESLint with TypeScript support
 - **Package Manager**: npm
 - **Environment**: Node.js
+
+## 🏗️ Architecture Overview
+
+This project implements a **hybrid architecture** that combines the best of both worlds:
+
+### FastAPI Backend (Primary)
+- **Authentication**: JWT-based user authentication
+- **Poll Management**: Create, read, update, delete polls
+- **Voting System**: Cast votes and retrieve results
+- **User Management**: User registration and profile management
+
+### Supabase Backend (Fallback)
+- **Database**: PostgreSQL database for data persistence
+- **Authentication**: Backup authentication system
+- **Real-time**: WebSocket connections for live updates
+
+### Frontend Integration
+- **Adaptive Client**: Automatically tries FastAPI first, falls back to Supabase
+- **Seamless UX**: Users experience unified interface regardless of backend
+- **Error Handling**: Graceful degradation when services are unavailable
 
 ## 📁 Project Structure
 
@@ -48,18 +77,25 @@ alx-polly-pro/
 ├── app/
 │   ├── auth/
 │   │   ├── login/
-│   │   │   └── page.tsx          # Login page
+│   │   │   └── page.tsx          # Login page with FastAPI integration
 │   │   └── register/
 │   │       └── page.tsx          # Registration page
+│   ├── polls/
+│   │   ├── create/
+│   │   │   └── page.tsx          # Poll creation page
+│   │   └── [id]/
+│   │       └── page.tsx          # Individual poll page
 │   ├── globals.css               # Global styles
 │   ├── layout.tsx               # Root layout with AuthProvider
 │   └── page.tsx                 # Home page
 ├── components/
 │   ├── auth/
-│   │   ├── login-form.tsx       # Login form component
+│   │   ├── login-form.tsx       # Login form with FastAPI + Supabase
 │   │   └── register-form.tsx    # Registration form component
 │   ├── polls/
-│   │   └── create-poll-form.tsx # Poll creation form
+│   │   ├── create-poll-form.tsx # Poll creation with FastAPI integration
+│   │   ├── poll-card.tsx        # Poll display component
+│   │   └── poll-list.tsx        # Poll listing component
 │   ├── ui/                      # Enhanced UI components
 │   │   ├── animated-container.tsx    # Animation framework
 │   │   ├── error-display.tsx        # Error handling system
@@ -74,12 +110,21 @@ alx-polly-pro/
 │   │   └── auth-provider.tsx    # Authentication context provider
 │   └── ui/                      # shadcn/ui components
 ├── lib/
+│   ├── fastapi-client.ts        # FastAPI client with TypeScript adapter
+│   ├── api.ts                   # API abstraction layer
 │   ├── supabase/
 │   │   └── server.ts           # Server-side Supabase client
 │   ├── supabase.ts             # Client-side Supabase client
 │   └── utils.ts                # Utility functions
-└── hooks/
-    └── use-auth.ts             # Authentication hook
+├── hooks/
+│   ├── use-auth.ts             # Authentication hook
+│   └── use-polls.ts            # Polls management hook
+├── test-scripts/               # FastAPI integration tests
+│   ├── test-fastapi-simple.js  # Basic FastAPI endpoint tests
+│   ├── test-complete-flow.js   # End-to-end flow testing
+│   └── test-frontend-fastapi.js # Frontend integration tests
+└── types/
+    └── index.ts                # TypeScript type definitions
 ```
 
 ## 🔧 Setup Instructions
@@ -157,19 +202,27 @@ The API will be available at `http://localhost:8000`
 
 #### Frontend Testing
 - Navigate to `http://localhost:3000`
-- Test authentication flows (register/login)
-- Create and vote on polls
+- Test authentication flows (register/login with FastAPI fallback)
+- Create and vote on polls using FastAPI backend
 - Check responsive design on different devices
 
 #### API Testing (FastAPI)
 ```bash
-# Test user registration
-python python_client.py
+# Run comprehensive test scripts
+node test-scripts/test-complete-flow.js
 
-# Or test individual endpoints
+# Test individual endpoints
 curl -X POST "http://localhost:8000/register" \
      -H "Content-Type: application/json" \
-     -d '{"username": "testuser", "password": "testpass123"}'
+     -d '{"username": "testuser", "email": "test@example.com", "password": "testpass123"}'
+
+# Test login
+curl -X POST "http://localhost:8000/login" \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     -d "username=testuser&password=testpass123"
+
+# View API documentation
+# Navigate to http://localhost:8000/docs for interactive API docs
 ```
 
 ### 6. Development Workflow
@@ -194,8 +247,9 @@ curl -X POST "http://localhost:8000/register" \
   - [ ] Password visibility toggle works
   - [ ] Password strength indicator shows weak/medium/strong
   - [ ] Confirm password visibility toggle works
-- [ ] **Supabase Integration**
-  - [ ] Successful registration creates user account
+- [ ] **Backend Integration**
+  - [ ] FastAPI registration creates user account (primary)
+  - [ ] Supabase fallback registration works
   - [ ] Email confirmation flow (if enabled)
   - [ ] Duplicate email registration shows appropriate error
   - [ ] Network errors are handled gracefully
@@ -211,6 +265,8 @@ curl -X POST "http://localhost:8000/register" \
   - [ ] Invalid email format shows error
   - [ ] Real-time error clearing when typing
 - [ ] **Authentication**
+  - [ ] FastAPI authentication works (primary)
+  - [ ] Supabase fallback authentication works
   - [ ] Valid credentials log user in successfully
   - [ ] Invalid credentials show appropriate error
   - [ ] Password visibility toggle works
@@ -232,6 +288,68 @@ curl -X POST "http://localhost:8000/register" \
   - [ ] Authentication context provides correct user state
   - [ ] Loading states handled properly
   - [ ] Session refresh works correctly
+
+### FastAPI Integration Testing
+
+#### Automated Test Scripts
+The project includes comprehensive test scripts for FastAPI integration:
+
+1. **Basic Endpoint Testing** (`test-scripts/test-fastapi-simple.js`)
+   - Tests user registration and login endpoints
+   - Validates token generation and authentication
+   - Verifies basic API functionality
+
+2. **Complete Flow Testing** (`test-scripts/test-complete-flow.js`)
+   - End-to-end testing of user registration, login, poll creation, voting, and results
+   - Comprehensive validation of all FastAPI endpoints
+   - Error handling and edge case testing
+
+3. **Frontend Integration Testing** (`test-scripts/test-frontend-fastapi.js`)
+   - Tests FastAPI client integration with frontend
+   - Validates authentication flow through UI components
+   - Ensures proper error handling and user feedback
+
+#### Running Test Scripts
+```bash
+# Run complete flow test
+node test-scripts/test-complete-flow.js
+
+# Run basic endpoint test
+node test-scripts/test-fastapi-simple.js
+
+# Run frontend integration test
+node test-scripts/test-frontend-fastapi.js
+```
+
+#### Manual API Testing
+```bash
+# Test user registration
+curl -X POST "http://localhost:8000/register" \
+     -H "Content-Type: application/json" \
+     -d '{"username": "testuser", "email": "test@example.com", "password": "testpass123"}'
+
+# Test user login
+curl -X POST "http://localhost:8000/login" \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     -d "username=testuser&password=testpass123"
+
+# Test poll creation (requires authentication token)
+curl -X POST "http://localhost:8000/polls" \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+     -d '{"title": "Test Poll", "description": "A test poll", "options": ["Option 1", "Option 2"]}'
+
+# Test voting (requires authentication token)
+curl -X POST "http://localhost:8000/polls/1/vote" \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+     -d '{"option_id": 1}'
+```
+
+#### Interactive API Documentation
+- Navigate to `http://localhost:8000/docs` for Swagger UI
+- Navigate to `http://localhost:8000/redoc` for ReDoc documentation
+- Test all endpoints interactively with built-in authentication
 
 ### Test Scenarios
 
@@ -396,86 +514,7 @@ For the complete schema with all policies, triggers, and sample data, see: <mcfi
 - **CSRF Protection**: Built-in CSRF protection with Supabase
 - **Secure Cookies**: HTTP-only cookies for session management
 
-## 📋 Code Reviews
-
-### Authentication Flow Improvements (Latest - v1.2.0)
-
-**Issue**: Login pages were refreshing instead of redirecting properly after successful authentication.
-
-**Root Cause Analysis**:
-- Use of `window.location.href` and `window.location.replace()` causing full page refreshes
-- Inconsistent redirect handling between login form and auth provider
-- Missing proper Next.js router usage for client-side navigation
-
-**Implemented Fixes**:
-
-1. **Login Form Component** (`components/auth/login-form.tsx`)
-   - Replaced all `window.location` methods with Next.js `router.push()`
-   - Improved redirect URL handling from query parameters
-   - Enhanced error handling and fallback navigation
-
-2. **Auth Provider** (`components/providers/auth-provider.tsx`)
-   - Added Next.js router import and initialization
-   - Updated auth state change handler to use `router.push()` instead of `window.location.href`
-   - Maintained redirect URL cleanup and session management
-
-3. **Benefits**:
-   - Eliminates page refresh during authentication flow
-   - Provides smoother user experience with client-side navigation
-   - Maintains application state during redirects
-   - Improves performance by avoiding full page reloads
-
-**Testing Recommendations**:
-- Test login flow with various redirect URLs
-- Verify protected route access and redirects
-- Check authentication state persistence
-- Test error scenarios and fallback behavior
-
-### Database Index Optimization (v1.1.5)
-
-**Issue**: Supabase Performance Advisor identified 8 unused database indexes consuming unnecessary storage and affecting write performance.
-
-**Analysis Results**:
-- Identified unused indexes on `polls`, `votes`, and `poll_options` tables
-- Query patterns showed minimal use of indexed columns in WHERE clauses
-- Most queries were simple SELECT operations without complex filtering
-
-**Implemented Changes**:
-- Removed 8 unused indexes while retaining `idx_poll_options_poll_id`
-- Created cleanup script (`database/cleanup-unused-indexes.sql`)
-- Updated schema files with optimized index configuration
-- Documented changes and rollback procedures
-
-**Performance Benefits**:
-- Reduced database storage overhead
-- Improved INSERT/UPDATE/DELETE performance
-- Simplified database maintenance
-
 ## 📋 Changelog
-
-### Version 1.2.0 - Authentication Flow Fix (Current)
-
-#### Fixed
-- **Login Redirect Issue**: Resolved page refresh problem during authentication
-  - Replaced `window.location` methods with Next.js `router.push()`
-  - Improved client-side navigation for smoother user experience
-  - Enhanced redirect URL handling and error recovery
-
-#### Enhanced
-- **Auth Provider**: Better session management and redirect handling
-- **Login Form**: More reliable navigation after successful authentication
-- **User Experience**: Eliminated page refreshes during auth flow
-
-### Version 1.1.5 - Database Performance Optimization
-
-#### Optimized
-- **Database Indexes**: Removed 8 unused indexes identified by Supabase Performance Advisor
-- **Query Performance**: Improved write operation performance
-- **Storage Efficiency**: Reduced database storage overhead
-
-#### Added
-- **Cleanup Script**: Database index cleanup script with rollback capability
-- **Documentation**: Updated schema documentation with optimization notes
 
 ### Version 1.1.0 - UI Enhancement Update (Current)
 
