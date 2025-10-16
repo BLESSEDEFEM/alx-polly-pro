@@ -5,19 +5,58 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
+import { supabase } from '@/lib/supabase';
 import { useUserProfile } from '@/hooks/use-user-profile';
 import { adaptiveClient } from '@/lib/adaptive-client';
 
 export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { user, signOut } = useAuth();
   const { isAdmin } = useUserProfile();
   const router = useRouter();
   const pathname = usePathname();
 
   const handleLogout = async () => {
-    await signOut();
-    router.push('/auth/login');
+    try {
+      setIsLoggingOut(true);
+      // Perform sign out via provider
+      await signOut();
+
+      // Robustly ensure the session is actually cleared before redirecting
+      const waitUntilSignedOut = async (timeoutMs = 2000) => {
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+          try {
+            const { data } = await supabase.auth.getSession();
+            if (!data?.session) return true;
+          } catch (_) {
+            // ignore
+          }
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        return false;
+      };
+
+      await waitUntilSignedOut(2500);
+
+      // Navigate to login page; provide hard redirect fallback
+      router.replace('/auth/login');
+      setTimeout(() => {
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth/login')) {
+          try {
+            window.location.assign('/auth/login');
+          } catch (e) {
+            console.warn('Navbar - Hard redirect fallback failed:', e);
+          }
+        }
+      }, 600);
+    } catch (e) {
+      console.error('Logout error:', e);
+      router.replace('/auth/login');
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   const isActivePath = (path: string) => {
@@ -73,8 +112,8 @@ export function Navbar() {
                 <span className="text-sm text-gray-600">
                   Welcome, {user?.name || user?.username || user?.email}
                 </span>
-                <Button variant="outline" size="sm" onClick={handleLogout}>
-                  Sign Out
+                <Button variant="outline" size="sm" onClick={handleLogout} disabled={isLoggingOut}>
+                  {isLoggingOut ? 'Signing out...' : 'Sign Out'}
                 </Button>
               </div>
             ) : (

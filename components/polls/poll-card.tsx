@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { QRCodeGenerator } from './qr-code-generator';
+import { NetworkQR } from './network-qr';
 import { Poll } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -32,7 +33,29 @@ export function PollCard({
   const [voteError, setVoteError] = useState<string | null>(null);
   const [voteSuccess, setVoteSuccess] = useState(false);
 
-  const totalVotes = poll.options.reduce((sum, option) => sum + (option.votes || 0), 0);
+  // Auto-hide vote error after 5 seconds
+  const hideErrorTimer = useRef<number | null>(null);
+  useEffect(() => {
+    if (voteError) {
+      if (hideErrorTimer.current) {
+        clearTimeout(hideErrorTimer.current);
+      }
+      hideErrorTimer.current = window.setTimeout(() => {
+        setVoteError(null);
+      }, 5000);
+    }
+    return () => {
+      if (hideErrorTimer.current) {
+        clearTimeout(hideErrorTimer.current);
+      }
+    };
+  }, [voteError]);
+
+  // Ensure vote counts are properly calculated
+  const totalVotes = poll.options.reduce((sum, option) => {
+    const votes = typeof option.votes === 'number' ? option.votes : 0;
+    return sum + votes;
+  }, 0);
 
   const handleOptionSelect = (optionId: string) => {
     if (poll.allowMultipleVotes) {
@@ -59,10 +82,10 @@ export function PollCard({
       setSelectedOptions([]);
       setVoteSuccess(true);
       
-      // Auto-hide success message after 3 seconds
+      // Keep success message visible longer on mobile
       setTimeout(() => {
         setVoteSuccess(false);
-      }, 3000);
+      }, 5000);
     } catch (error) {
       console.error('Voting failed:', error);
       setVoteError(error instanceof Error ? error.message : 'Failed to cast vote. Please try again.');
@@ -205,10 +228,24 @@ export function PollCard({
             </Button>
           )}
 
-          {/* QR Code Generator */}
-          <div className="sm:flex-none">
+          {showActions && onDelete && (
+            <Button 
+              variant="destructive" 
+              onClick={() => onDelete(poll.id)}
+              className={showVoteButton ? 'sm:flex-none sm:w-auto' : 'flex-1'}
+            >
+              Delete Poll
+            </Button>
+          )}
+
+          {/* QR Code Generators */}
+          <div className="sm:flex-none flex gap-2">
             <QRCodeGenerator 
               pollId={poll.id} 
+              pollTitle={poll.title}
+            />
+            <NetworkQR
+              pollId={poll.id}
               pollTitle={poll.title}
             />
           </div>

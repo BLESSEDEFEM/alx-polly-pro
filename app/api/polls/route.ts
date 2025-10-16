@@ -3,48 +3,97 @@ import { createClient } from '@/lib/supabase/server'; // Import the new server-s
 import { Poll } from '@/types';
 
 export async function GET(request: Request) {
-  console.log('API Route: GET /api/polls');
-  console.log('NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Loaded' : 'NOT Loaded');
-  console.log('NEXT_PUBLIC_SUPABASE_ANON_KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Loaded' : 'NOT Loaded');
+  try {
+    console.log('API Route: GET /api/polls');
+    
+    // Check if environment variables are loaded
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.error('Missing Supabase environment variables');
+      return NextResponse.json(
+        { message: 'Server configuration error', error: 'Missing Supabase credentials' }, 
+        { status: 500 }
+      );
+    }
+    
+    console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+    
+    // Create Supabase client
+    const supabase = createClient();
+    
+    // Get URL parameters for pagination
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '100'); // Increased default limit to 100
+    const fetchAll = url.searchParams.get('fetchAll') === 'true';
+    
+    // Query polls - either all or with pagination
+    console.log('Fetching polls, fetchAll:', fetchAll);
+    
+    let query = supabase
+      .from('polls')
+      .select(`
+        *,
+        options:poll_options(*)
+      `)
+      .order('created_at', { ascending: false });
+      
+    // Apply pagination only if not fetching all
+    if (!fetchAll) {
+      // Calculate pagination
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+      query = query.range(from, to);
+    }
+    
+    const { data: pollsData, error } = await query;
+    
+    console.log('Polls data count:', pollsData?.length || 0);
 
-  const supabase = createClient();
-
-  const { data: pollsData, error } = await supabase
-    .from('polls')
-    .select(`
-      *,
-      options:poll_options(*)
-    `);
-
-  console.log('Supabase raw data:', pollsData);
-  console.log('Supabase raw error:', error);
-
-  if (error) {
-    console.error('Supabase Error fetching polls:', error);
-    return NextResponse.json({ message: 'Failed to fetch polls', error: error.message }, { status: 500 });
-  }
+    if (error) {
+      console.error('Supabase Error fetching polls:', error);
+      return NextResponse.json({ message: 'Failed to fetch polls', error: error.message }, { status: 500 });
+    }
+    
+    if (!pollsData) {
+      return NextResponse.json({ message: 'No polls found' }, { status: 404 });
+    }
 
   // Map Supabase data to Poll type
-  const polls: Poll[] = pollsData.map((poll: any) => ({
-    id: poll.id,
-    title: poll.title,
-    description: poll.description,
-    options: poll.options.map((option: any) => ({
-      id: option.id,
-      text: option.text,
-      votes: option.vote_count,
-    })),
-    createdBy: poll.created_by,
-    createdAt: new Date(poll.created_at),
-    updatedAt: new Date(poll.updated_at),
-    isActive: poll.is_active,
-    expiresAt: poll.expires_at ? new Date(poll.expires_at) : undefined,
-    allowMultipleVotes: poll.allow_multiple_votes,
-    isAnonymous: poll.is_anonymous,
-    pollCategory: poll.poll_category,
-  }));
+  try {
+    const polls: Poll[] = pollsData.map((poll: any) => ({
+      id: poll.id,
+      title: poll.title,
+      description: poll.description,
+      options: poll.options.map((option: any) => ({
+        id: option.id,
+        text: option.text,
+        votes: option.vote_count || 0,
+      })),
+      createdBy: poll.created_by,
+      createdAt: new Date(poll.created_at),
+      updatedAt: new Date(poll.updated_at),
+      isActive: poll.is_active,
+      expiresAt: poll.expires_at ? new Date(poll.expires_at) : undefined,
+      allowMultipleVotes: poll.allow_multiple_votes,
+      isAnonymous: poll.is_anonymous,
+      pollCategory: poll.poll_category,
+    }));
 
-  return NextResponse.json(polls);
+    return NextResponse.json(polls);
+  } catch (error) {
+    console.error('Error processing poll data:', error);
+    return NextResponse.json(
+      { message: 'Error processing poll data', error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
+} catch (error) {
+  console.error('Unhandled error in polls API:', error);
+  return NextResponse.json(
+    { message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' },
+    { status: 500 }
+  );
+}
 }
 
 export async function POST(request: Request) {
@@ -124,7 +173,8 @@ export async function POST(request: Request) {
     options: newOptionsData.map((option: any) => ({
       id: option.id,
       text: option.text,
-      votes: option.votes,
+      // Use vote_count from DB and default to 0 to avoid undefined
+      votes: option.vote_count || 0,
       pollId: newPollData.id, // Add the missing pollId property
     })),
     createdBy: newPollData.created_by,

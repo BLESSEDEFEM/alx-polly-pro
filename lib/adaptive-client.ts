@@ -108,7 +108,7 @@ export const adaptiveAuthAPI = {
     try {
       if (backendType === 'fastapi') {
         // Use FastAPI registration
-        const result = await fastAPIAdapter.auth.register(
+        const result = await fastAPIAdapter.authAPI.register(
           data.username || data.email.split('@')[0], // Use email prefix as username if not provided
           data.password
         );
@@ -154,7 +154,7 @@ export const adaptiveAuthAPI = {
     try {
       if (backendType === 'fastapi') {
         // Use FastAPI login
-        const result = await fastAPIAdapter.auth.login(data.email, data.password);
+        const result = await fastAPIAdapter.authAPI.login(data.email, data.password);
         return result;
       } else {
         // Use Supabase login
@@ -192,7 +192,7 @@ export const adaptiveAuthAPI = {
     try {
       if (backendType === 'fastapi') {
         // Use FastAPI logout
-        const result = await fastAPIAdapter.auth.logout();
+        const result = await fastAPIAdapter.authAPI.logout();
         return result;
       } else {
         // Use Supabase logout
@@ -227,7 +227,7 @@ export const adaptiveAuthAPI = {
     try {
       if (backendType === 'fastapi') {
         // For FastAPI, we'll check if there's a stored token
-        const token = typeof window !== 'undefined' ? localStorage.getItem('fastapi-token') : null;
+        const token = typeof window !== 'undefined' ? localStorage.getItem('fastapi_token') : null;
         if (token) {
           return {
             success: true,
@@ -263,6 +263,36 @@ export const adaptiveAuthAPI = {
       };
     }
   },
+
+  /**
+   * Get current user
+   */
+  async getCurrentUser(): Promise<ApiResponse<any>> {
+    const backendType = getBackendType();
+    try {
+      if (backendType === 'fastapi') {
+        const result = await fastAPIAdapter.authAPI.getCurrentUser();
+        return result;
+      } else {
+        const { data, error } = await supabase.auth.getUser();
+        if (error) {
+          return {
+            success: false,
+            error: error.message,
+          };
+        }
+        return {
+          success: true,
+          data,
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get current user',
+      };
+    }
+  },
 };
 
 /**
@@ -280,7 +310,7 @@ export const adaptivePollsAPI = {
     try {
       if (backendType === 'fastapi') {
         // Use FastAPI polls with pagination support
-        const result = await fastAPIAdapter.polls.getPolls();
+        const result = await fastAPIAdapter.pollsAPI.getPolls();
         return standardizeResponse(result, backendType);
       } else {
         // Use Supabase polls - implement Supabase poll fetching here
@@ -306,7 +336,7 @@ export const adaptivePollsAPI = {
     try {
       if (backendType === 'fastapi') {
         // Use FastAPI poll
-        const result = await fastAPIAdapter.polls.getPoll(id);
+        const result = await fastAPIAdapter.pollsAPI.getPoll(id);
         return standardizeResponse(result, backendType);
       } else {
         // Use Supabase poll - implement Supabase poll fetching here
@@ -332,7 +362,7 @@ export const adaptivePollsAPI = {
     try {
       if (backendType === 'fastapi') {
         // Use FastAPI poll creation
-        const result = await fastAPIAdapter.polls.createPoll(pollData);
+        const result = await fastAPIAdapter.pollsAPI.createPoll(pollData);
         return standardizeResponse(result, backendType);
       } else {
         // Use Supabase poll creation - implement Supabase poll creation here
@@ -358,7 +388,7 @@ export const adaptivePollsAPI = {
     try {
       if (backendType === 'fastapi') {
         // Use FastAPI poll update
-        const result = await fastAPIAdapter.polls.updatePoll(pollId, pollData);
+        const result = await fastAPIAdapter.pollsAPI.updatePoll(pollId, pollData);
         return standardizeResponse(result, backendType);
       } else {
         // Use Supabase poll update - implement Supabase poll update here
@@ -384,7 +414,7 @@ export const adaptivePollsAPI = {
     try {
       if (backendType === 'fastapi') {
         // Use FastAPI poll deletion
-        const result = await fastAPIAdapter.polls.deletePoll(pollId);
+        const result = await fastAPIAdapter.pollsAPI.deletePoll(pollId);
         return standardizeResponse(result, backendType);
       } else {
         // Use Supabase poll deletion - implement Supabase poll deletion here
@@ -410,7 +440,7 @@ export const adaptivePollsAPI = {
     try {
       if (backendType === 'fastapi') {
         // Use FastAPI voting
-        const result = await fastAPIAdapter.polls.vote(pollId, optionId);
+        const result = await fastAPIAdapter.pollsAPI.vote(pollId, optionId);
         return standardizeResponse(result, backendType);
       } else {
         // Use Supabase voting - implement Supabase voting here
@@ -436,7 +466,7 @@ export const adaptivePollsAPI = {
     try {
       if (backendType === 'fastapi') {
         // Use FastAPI results
-        const result = await fastAPIAdapter.polls.getPollResults(pollId);
+        const result = await fastAPIAdapter.pollsAPI.getPollResults(pollId);
         return standardizeResponse(result, backendType);
       } else {
         // Use Supabase results - implement Supabase results here
@@ -462,7 +492,7 @@ export const adaptivePollsAPI = {
     try {
       if (backendType === 'fastapi') {
         // Use FastAPI user polls
-        const result = await fastAPIAdapter.polls.getUserPolls(userId);
+        const result = await fastAPIAdapter.pollsAPI.getUserPolls(userId);
         return standardizeResponse(result, backendType);
       } else {
         // Use Supabase user polls - implement Supabase user polls here
@@ -488,7 +518,7 @@ export const adaptivePollsAPI = {
     try {
       if (backendType === 'fastapi') {
         // Use FastAPI user votes
-        const result = await fastAPIAdapter.polls.getUserVotes?.(userId);
+        const result = await fastAPIAdapter.pollsAPI.getUserVotes?.(userId);
         return standardizeResponse(result || { success: false, error: 'Method not available' }, backendType);
       } else {
         // Use Supabase user votes - implement Supabase user votes here
@@ -512,8 +542,12 @@ export const adaptivePollsAPI = {
  * Enhanced with Polly-API specification compatibility
  */
 export const adaptiveClient = {
+  // Backwards-compatible keys
   auth: adaptiveAuthAPI,
   polls: adaptivePollsAPI,
+  // Also expose API-suffixed keys
+  authAPI: adaptiveAuthAPI,
+  pollsAPI: adaptivePollsAPI,
   
   /**
    * User management API
@@ -864,7 +898,9 @@ export const adaptiveCommentsAPI = {
 };
 
 // Add comments to the main client after it's declared
-adaptiveClient.comments = adaptiveCommentsAPI;
+// Assign comments APIs to the adaptive client with a type cast for flexibility
+(adaptiveClient as any).commentsAPI = adaptiveCommentsAPI;
+(adaptiveClient as any).comments = adaptiveCommentsAPI;
 
 // Export individual APIs for convenience
 export { adaptiveAuthAPI as authAPI, adaptivePollsAPI as pollsAPI, adaptiveCommentsAPI as commentsAPI };

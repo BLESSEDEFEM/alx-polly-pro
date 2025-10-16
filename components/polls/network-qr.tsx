@@ -4,39 +4,39 @@ import { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { QrCode, Download, Share2, Copy } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { QrCode, Download, Share2, Copy, Globe } from 'lucide-react'
 import { toast } from 'sonner'
+import { Input } from '@/components/ui/input'
 
-interface QRCodeGeneratorProps {
+interface NetworkQRProps {
   pollId: string
   pollTitle: string
   className?: string
 }
 
-export function QRCodeGenerator({ pollId, pollTitle, className }: QRCodeGeneratorProps) {
+export function NetworkQR({ pollId, pollTitle, className }: NetworkQRProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
+  const [networkUrl, setNetworkUrl] = useState('')
 
-  // Use a configurable base URL or fallback to window.location.origin
-  const getBaseUrl = () => {
-    // For development: Check if we're running on localhost
-    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-      // Return your local network IP or a service like ngrok if configured
-      // You can replace this with your actual local network IP
-      return process.env.NEXT_PUBLIC_EXTERNAL_URL || window.location.origin
+  // Get the base path without hostname
+  const pollPath = `/polls/${pollId}`
+
+  useEffect(() => {
+    // Try to get the user's local IP address
+    if (isOpen && !networkUrl) {
+      setNetworkUrl(`${window.location.protocol}//${window.location.hostname}:${window.location.port}${pollPath}`)
     }
-    // For production: Use the actual domain
-    return window.location.origin
-  }
-  
-  const pollUrl = `${getBaseUrl()}/polls/${pollId}`
+  }, [isOpen, networkUrl, pollPath])
 
   const generateQRCode = async () => {
+    if (!networkUrl) return
+    
     setIsLoading(true)
     try {
-      const qrDataUrl = await QRCode.toDataURL(pollUrl, {
+      const qrDataUrl = await QRCode.toDataURL(networkUrl, {
         width: 300,
         margin: 2,
         color: {
@@ -55,10 +55,10 @@ export function QRCodeGenerator({ pollId, pollTitle, className }: QRCodeGenerato
   }
 
   useEffect(() => {
-    if (isOpen && !qrCodeUrl) {
+    if (isOpen && networkUrl && !qrCodeUrl) {
       generateQRCode()
     }
-  }, [isOpen, qrCodeUrl])
+  }, [isOpen, networkUrl, qrCodeUrl])
 
   const downloadQRCode = () => {
     if (!qrCodeUrl) return
@@ -74,7 +74,7 @@ export function QRCodeGenerator({ pollId, pollTitle, className }: QRCodeGenerato
 
   const copyPollUrl = async () => {
     try {
-      await navigator.clipboard.writeText(pollUrl)
+      await navigator.clipboard.writeText(networkUrl)
       toast.success('Poll URL copied to clipboard!')
     } catch (error) {
       console.error('Failed to copy URL:', error)
@@ -82,39 +82,33 @@ export function QRCodeGenerator({ pollId, pollTitle, className }: QRCodeGenerato
     }
   }
 
-  const shareQRCode = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Poll: ${pollTitle}`,
-          text: `Check out this poll: ${pollTitle}`,
-          url: pollUrl
-        })
-      } catch (error) {
-        console.error('Error sharing:', error)
-        // Fallback to copying URL
-        copyPollUrl()
-      }
-    } else {
-      // Fallback for browsers that don't support Web Share API
-      copyPollUrl()
-    }
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNetworkUrl(e.target.value)
+    setQrCodeUrl('') // Reset QR code when URL changes
+  }
+
+  const regenerateQRCode = () => {
+    setQrCodeUrl('')
+    generateQRCode()
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className={className}>
-          <QrCode className="h-4 w-4 mr-2" />
-          QR Code
+          <Globe className="h-4 w-4 mr-2" />
+          Network QR
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md max-w-[95vw] mx-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <QrCode className="h-4 w-4 sm:h-5 sm:w-5" />
-            Share Poll QR Code
+            <Globe className="h-4 w-4 sm:h-5 sm:w-5" />
+            Share Poll on Your Network
           </DialogTitle>
+          <DialogDescription>
+            Generate a QR code that works on your local network
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <Card>
@@ -124,6 +118,31 @@ export function QRCodeGenerator({ pollId, pollTitle, className }: QRCodeGenerato
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Network URL Input */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Network URL:</label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="text"
+                    value={networkUrl}
+                    onChange={handleUrlChange}
+                    placeholder="Enter your network URL (e.g., http://192.168.1.100:3001/polls/...)"
+                    className="flex-1 px-3 py-2 text-sm"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={regenerateQRCode}
+                    className="flex-shrink-0"
+                  >
+                    <QrCode className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Replace with your actual network IP and port for sharing on your local network
+                </p>
+              </div>
+
               {/* QR Code Display */}
               <div className="flex justify-center">
                 {isLoading ? (
@@ -145,27 +164,6 @@ export function QRCodeGenerator({ pollId, pollTitle, className }: QRCodeGenerato
                 )}
               </div>
 
-              {/* Poll URL */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Poll URL:</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={pollUrl}
-                    readOnly
-                    className="flex-1 px-3 py-2 text-sm bg-muted rounded-md border min-w-0 truncate"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={copyPollUrl}
-                    className="flex-shrink-0"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-2">
                 <Button
@@ -179,17 +177,22 @@ export function QRCodeGenerator({ pollId, pollTitle, className }: QRCodeGenerato
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={shareQRCode}
+                  onClick={copyPollUrl}
                   className="flex-1"
                 >
-                  <Share2 className="h-4 w-4 mr-2" />
-                  Share
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy URL
                 </Button>
               </div>
 
               {/* Instructions */}
               <div className="text-xs text-muted-foreground text-center px-2">
-                Scan this QR code with any device to quickly access the poll
+                <p>For sharing on your local network:</p>
+                <ol className="text-left list-decimal pl-4 mt-1 space-y-1">
+                  <li>Find your computer's IP address (e.g., 192.168.1.100)</li>
+                  <li>Enter it with the port in the URL field above</li>
+                  <li>Generate and share the QR code</li>
+                </ol>
               </div>
             </CardContent>
           </Card>

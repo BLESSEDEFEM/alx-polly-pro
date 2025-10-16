@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS public.poll_options (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     poll_id UUID REFERENCES public.polls(id) ON DELETE CASCADE NOT NULL,
     text TEXT NOT NULL,
-    vote_count INTEGER DEFAULT 0 NOT NULL,
+    vote_count INTEGER DEFAULT 0 NOT NULL CHECK (vote_count >= 0),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
@@ -149,6 +149,16 @@ CREATE POLICY "Users can view their own votes" ON public.votes
         (user_id IS NULL AND voter_session = current_setting('app.voter_session', true))
     );
 
+-- Ensure single anonymous vote per IP per poll (DB-level enforcement)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'unique_anonymous_vote_per_ip'
+  ) THEN
+    CREATE UNIQUE INDEX unique_anonymous_vote_per_ip ON public.votes (poll_id, voter_ip) WHERE user_id IS NULL;
+  END IF;
+END $$;
+
 -- ============================================================================
 -- FUNCTIONS AND TRIGGERS
 -- ============================================================================
@@ -187,7 +197,7 @@ CREATE OR REPLACE FUNCTION decrement_vote_count()
 RETURNS TRIGGER AS $$
 BEGIN
     UPDATE public.poll_options 
-    SET vote_count = vote_count - 1 
+    SET vote_count = GREATEST(vote_count - 1, 0) 
     WHERE id = OLD.option_id;
     RETURN OLD;
 END;

@@ -15,7 +15,9 @@ import { PollCard } from '@/components/polls/poll-card';
 import { PollResultsChart } from '@/components/charts/poll-results-chart';
 import { CommentList } from '@/components/comments/comment-list';
 import { QRCodeGenerator } from '@/components/polls/qr-code-generator';
+import { NetworkQR } from '@/components/polls/network-qr';
 import { usePoll } from '@/hooks/use-polls';
+import { pollsAPI } from '@/lib/api';
 import { formatDistanceToNow, format } from 'date-fns';
 
 /**
@@ -56,12 +58,32 @@ export default function PollDetailsPage() {
   const handleVote = async (pollId: string, optionIds: string[]) => {
     try {
       await votePoll(optionIds);
-      // Refresh poll data to show updated results
-      setTimeout(() => {
-        refresh();
-      }, 1000);
+      
+      // Force a hard refresh of the page to ensure data is completely reloaded
+      window.location.reload();
     } catch (error) {
       throw error; // Re-throw to let PollCard handle the error display
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const confirmed = typeof window !== 'undefined' ? window.confirm('Delete this poll permanently?') : true;
+      if (!confirmed) return;
+      const res = await pollsAPI.deletePoll(id);
+      if (res.success) {
+        router.push('/polls');
+      } else {
+        const msg = res.error || 'Failed to delete poll';
+        if (typeof window !== 'undefined') {
+          window.alert(msg);
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete poll';
+      if (typeof window !== 'undefined') {
+        window.alert(msg);
+      }
     }
   };
 
@@ -126,8 +148,10 @@ export default function PollDetailsPage() {
           <PollCard
             poll={poll}
             onVote={handleVote}
+            onDelete={handleDelete}
             showVoteButton={true}
             showResults={true}
+            showActions={true}
           />
           
           {/* Poll Results Chart */}
@@ -246,6 +270,13 @@ export default function PollDetailsPage() {
               {/* QR Code Generator */}
               <QRCodeGenerator 
                 pollId={poll.id} 
+                pollTitle={poll.title}
+                className="w-full"
+              />
+              
+              {/* Network QR Code - For sharing on local network */}
+              <NetworkQR
+                pollId={poll.id}
                 pollTitle={poll.title}
                 className="w-full"
               />

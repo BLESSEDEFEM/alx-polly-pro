@@ -76,29 +76,79 @@ export function DashboardPollList({ userId }: DashboardPollListProps) {
         setIsLoading(true);
         setError(null);
 
-        const pollsData = await adaptiveClient.polls.getUserPolls(userId);
+        // Fetch via adaptive client (returns standardized ApiResponse)
+        const response = await adaptiveClient.polls.getUserPolls(userId);
 
-        // Transform the data to match our Poll type
-        const transformedPolls: Poll[] = pollsData?.map(poll => ({
-          id: poll.id,
-          title: poll.title,
-          description: poll.description,
-          options: poll.poll_options?.map((option: any) => ({
-            id: option.id,
-            text: option.text,
-            votes: option.vote_count || 0,
-            pollId: poll.id
-          })) || [],
-          isAnonymous: poll.is_anonymous,
-          isActive: poll.is_active,
-          allowMultipleVotes: poll.allow_multiple_votes || false,
-          pollCategory: poll.poll_category || 'general',
-          visibility: poll.poll_visibility,
-          createdBy: poll.created_by,
-          createdAt: poll.created_at,
-          updatedAt: poll.updated_at,
-          expiresAt: poll.expires_at
-        })) || [];
+        // If adaptive client fails (e.g., Supabase branch not implemented), fallback to Next.js API
+        if (!response?.success || !Array.isArray(response.data)) {
+          try {
+            const res = await fetch('/api/polls?fetchAll=true');
+            if (!res.ok) {
+              throw new Error(`Fallback API failed: ${res.status}`);
+            }
+            const allPolls: Poll[] = await res.json();
+            const userPolls = (allPolls || []).filter(p => p.createdBy === userId);
+            setPolls(userPolls);
+            return;
+          } catch (fallbackErr) {
+            console.error('Fallback fetch user polls error:', fallbackErr);
+            setError('Failed to load your polls. Please try again.');
+            setPolls([]);
+            return;
+          }
+        }
+
+        const backend = adaptiveClient.getBackendType();
+        const pollsData = response.data as any[];
+
+        // Transform the data to match our Poll type, differing per backend
+        const transformedPolls: Poll[] = (pollsData || []).map((poll: any) => {
+          if (backend === 'fastapi') {
+            // FastAPI shape -> Poll
+            return {
+              id: String(poll.id),
+              title: poll.question,
+              description: poll.description,
+              options: (poll.options || []).map((option: any) => ({
+                id: String(option.id),
+                text: option.text,
+                votes: Math.max(0, Number(option.vote_count ?? 0) || 0),
+                pollId: String(poll.id),
+              })),
+              isAnonymous: Boolean(poll.is_anonymous),
+              isActive: Boolean(poll.is_active),
+              allowMultipleVotes: Boolean(poll.allow_multiple_votes),
+              pollCategory: poll.poll_category || 'general',
+              visibility: poll.poll_visibility,
+              createdBy: String(poll.created_by),
+              createdAt: new Date(poll.created_at),
+              updatedAt: poll.updated_at ? new Date(poll.updated_at) : new Date(poll.created_at),
+              expiresAt: poll.expires_at ? new Date(poll.expires_at) : undefined,
+            } as Poll;
+          }
+
+          // Supabase or generic shape -> Poll (covers /api/polls route format)
+          return {
+            id: String(poll.id),
+            title: poll.title,
+            description: poll.description,
+            options: (poll.options || poll.poll_options || []).map((option: any) => ({
+              id: String(option.id),
+              text: option.text,
+              votes: Math.max(0, Number(option.vote_count ?? option.votes ?? 0) || 0),
+              pollId: String(poll.id),
+            })),
+            isAnonymous: Boolean(poll.is_anonymous),
+            isActive: Boolean(poll.is_active),
+            allowMultipleVotes: Boolean(poll.allow_multiple_votes),
+            pollCategory: poll.poll_category || 'general',
+            visibility: poll.poll_visibility,
+            createdBy: String(poll.created_by || poll.createdBy),
+            createdAt: new Date(poll.created_at || poll.createdAt),
+            updatedAt: new Date(poll.updated_at || poll.updatedAt || (poll.created_at || poll.createdAt)),
+            expiresAt: poll.expires_at ? new Date(poll.expires_at) : (poll.expiresAt ? new Date(poll.expiresAt) : undefined),
+          } as Poll;
+        });
 
         setPolls(transformedPolls);
       } catch (err) {
@@ -126,7 +176,10 @@ export function DashboardPollList({ userId }: DashboardPollListProps) {
     try {
       setIsDeleting(true);
 
-      await adaptiveClient.polls.deletePoll(pollToDelete.id);
+      const delRes = await adaptiveClient.polls.deletePoll(pollToDelete.id);
+      if (!delRes?.success) {
+        throw new Error(delRes?.error || 'Deletion failed');
+      }
 
       // Remove the poll from local state
       setPolls(polls.filter(p => p.id !== pollToDelete.id));
@@ -154,7 +207,11 @@ export function DashboardPollList({ userId }: DashboardPollListProps) {
 
   // Calculate total votes for a poll
   const getTotalVotes = (poll: Poll) => {
-    return poll.options.reduce((sum, option) => sum + (option.votes || 0), 0);
+    return poll.options.reduce((sum, option) => {
+      const raw = typeof option.votes === 'number' ? option.votes : Number(option.votes) || 0;
+      const count = raw < 0 ? 0 : raw;
+      return sum + count;
+    }, 0);
   };
 
   if (isLoading) {
@@ -296,7 +353,7 @@ export function DashboardPollList({ userId }: DashboardPollListProps) {
                     {poll.options.slice(0, 3).map((option) => (
                       <div key={option.id} className="flex justify-between text-sm">
                         <span className="truncate">{option.text}</span>
-                        <span className="text-gray-500">{option.votes || 0}</span>
+                        <span className="text-gray-500">{Math.max(0, typeof option.votes === 'number' ? option.votes : (Number(option.votes) || 0))}</span>
                       </div>
                     ))}
                     {poll.options.length > 3 && (

@@ -35,7 +35,7 @@ export async function PUT(
     // Get existing comment to check ownership
     const { data: existingComment, error: fetchError } = await supabase
       .from('comments')
-      .select('user_id, poll_id')
+      .select('user_id, poll_id, is_anonymous')
       .eq('id', commentId)
       .single()
 
@@ -43,6 +43,14 @@ export async function PUT(
       return NextResponse.json(
         { error: 'Comment not found' },
         { status: 404 }
+      )
+    }
+
+    // Anonymous comments cannot be edited
+    if (existingComment.is_anonymous) {
+      return NextResponse.json(
+        { error: 'Anonymous comments cannot be edited' },
+        { status: 403 }
       )
     }
 
@@ -114,7 +122,7 @@ export async function DELETE(
     // Get existing comment to check ownership and get user role
     const { data: existingComment, error: fetchError } = await supabase
       .from('comments')
-      .select('user_id, poll_id')
+      .select('user_id, poll_id, is_anonymous')
       .eq('id', commentId)
       .single()
 
@@ -132,12 +140,21 @@ export async function DELETE(
       .eq('user_id', user.id)
       .single()
 
-    const isOwner = existingComment.user_id === user.id
+    const isOwner = !existingComment.is_anonymous && existingComment.user_id === user.id
     const isAdmin = userProfile?.role === 'admin'
     const isModerator = userProfile?.role === 'moderator'
 
     // Check if user can delete the comment
-    if (!isOwner && !isAdmin && !isModerator) {
+    // Anonymous comments can only be deleted by admins/moderators
+    if (existingComment.is_anonymous && !isAdmin && !isModerator) {
+      return NextResponse.json(
+        { error: 'Anonymous comments can only be deleted by administrators' },
+        { status: 403 }
+      )
+    }
+
+    // For non-anonymous comments, check ownership or admin/moderator status
+    if (!existingComment.is_anonymous && !isOwner && !isAdmin && !isModerator) {
       return NextResponse.json(
         { error: 'You can only delete your own comments' },
         { status: 403 }

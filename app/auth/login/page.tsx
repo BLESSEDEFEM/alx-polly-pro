@@ -1,7 +1,9 @@
 'use client';
 
 import { LoginForm } from '@/components/auth/login-form';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useEffect, useRef } from 'react';
+import { useAuth } from '@/components/providers/auth-provider';
 
 /**
  * Login page component
@@ -24,8 +26,48 @@ import { useSearchParams } from 'next/navigation';
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/';
+  const router = useRouter();
+  const { user, loading } = useAuth();
+  const hasRedirected = useRef(false);
   
   console.log('LoginPage - Redirect parameter:', redirectTo);
+
+  // Prevent showing the login form when already authenticated
+  useEffect(() => {
+    if (!loading && user && !hasRedirected.current) {
+      hasRedirected.current = true;
+      const finalRedirect = (() => {
+        if (!redirectTo || redirectTo.trim() === '') return '/';
+        try {
+          const url = new URL(redirectTo, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+          const path = url.pathname + url.search + url.hash;
+          return path || '/';
+        } catch {
+          return redirectTo.startsWith('/') ? redirectTo : `/${redirectTo}`;
+        }
+      })();
+      console.log('LoginPage - Authenticated, redirecting to:', finalRedirect);
+      router.replace(finalRedirect);
+      // Fallback in case client router is blocked or HMR interferes
+      if (typeof window !== 'undefined') {
+        setTimeout(() => {
+          if (window.location.pathname.startsWith('/auth/login')) {
+            console.log('LoginPage - Fallback redirect triggered to:', finalRedirect);
+            window.location.assign(finalRedirect);
+          }
+        }, 800);
+      }
+    }
+  }, [user, loading, redirectTo, router]);
+
+  // Optional: simple loading state while auth initializes
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="text-center text-gray-600">Checking session...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">

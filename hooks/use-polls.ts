@@ -6,7 +6,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Poll, PollOption, CreatePollData } from '@/types';
+import { Poll, PollOption, CreatePollFormData } from '@/types';
 import { pollsAPI } from '@/lib/api';
 
 /**
@@ -60,9 +60,10 @@ export function usePolls() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await pollsAPI.getPolls();
+      // Use fetchAll=true to get all polls instead of just the first page
+      const response = await pollsAPI.getPolls({ fetchAll: 'true' });
       if (response.success) {
-        setPolls(response.data);
+        setPolls(response.data as Poll[]);
       } else {
         const errorMessage = response.error || 'Failed to fetch polls';
         setError(errorMessage);
@@ -155,19 +156,23 @@ export function usePolls() {
       console.log('Vote response:', response);
       
       if (response.success) {
+        // Update local state immediately for responsive UI
         setPolls(prev => prev.map(poll => {
           if (poll.id === pollId) {
             return {
               ...poll,
               options: poll.options.map(option => 
                 optionIds.includes(option.id)
-                  ? { ...option, votes: option.votes + 1 }
+                  ? { ...option, votes: (option.votes || 0) + 1 }
                   : option
               ),
-            };
+            } as Poll;
           }
           return poll;
         }));
+        
+        // Refresh all polls to ensure data consistency
+        setTimeout(() => fetchPolls(), 500);
       } else {
         console.error('Vote failed with response:', response);
         throw new Error(response.error || response.message || 'Failed to cast vote');
@@ -317,17 +322,21 @@ export function usePoll(pollId: string) {
     try {
       const response = await pollsAPI.votePoll(pollId, optionIds);
       if (response.success) {
+        // Update local state immediately for responsive UI
         setPoll(prev => {
           if (!prev) return prev;
           return {
             ...prev,
             options: prev.options.map(option => 
               optionIds.includes(option.id)
-                ? { ...option, votes: option.votes + 1 }
+                ? { ...option, votes: (option.votes || 0) + 1 }
                 : option
             ),
           };
         });
+        
+        // Fetch fresh data from server to ensure consistency
+        fetchPoll();
       } else {
         throw new Error(response.error || 'Failed to cast vote');
       }

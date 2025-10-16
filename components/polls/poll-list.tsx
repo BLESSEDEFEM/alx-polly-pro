@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Poll } from '@/types';
 import { usePolls } from '@/hooks/use-polls';
+import { pollsAPI } from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth';
 
 interface PollListProps {
   polls?: Poll[];
@@ -29,7 +31,8 @@ export function PollList({
   const [filterBy, setFilterBy] = useState<'all' | 'active' | 'closed'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
-  const { polls: hookPolls, isLoading, votePoll } = usePolls();
+  const { polls: hookPolls, isLoading, votePoll, refreshPolls } = usePolls();
+  const { user } = useAuth();
   const router = useRouter();
 
   // Use external polls if provided, otherwise use hook polls
@@ -188,9 +191,11 @@ export function PollList({
               key={poll.id}
               poll={poll}
               onVote={handleVote}
+              onDelete={handleDelete}
               onViewDetails={handleViewDetails}
               showVoteButton={true}
               showResults={false}
+              showActions={!!user && user.id === poll.createdBy}
             />
           ))}
         </div>
@@ -198,3 +203,25 @@ export function PollList({
     </div>
   );
 }
+  const handleDelete = async (pollId: string) => {
+    try {
+      const confirmed = typeof window !== 'undefined' ? window.confirm('Delete this poll permanently?') : true;
+      if (!confirmed) return;
+
+      const res = await pollsAPI.deletePoll(pollId);
+      if (res.success) {
+        // Refresh list from server
+        refreshPolls();
+      } else {
+        const msg = res.error || 'Failed to delete poll';
+        if (typeof window !== 'undefined') {
+          window.alert(msg);
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete poll';
+      if (typeof window !== 'undefined') {
+        window.alert(msg);
+      }
+    }
+  };

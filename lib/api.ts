@@ -96,8 +96,14 @@ class ApiClient {
    * @param endpoint - API endpoint path
    * @returns Promise resolving to API response
    */
-  async get<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: 'GET' });
+  async get<T>(endpoint: string, params?: Record<string, string>): Promise<ApiResponse<T>> {
+    // Add query parameters if provided
+    let url = endpoint;
+    if (params && Object.keys(params).length > 0) {
+      const queryString = new URLSearchParams(params).toString();
+      url = `${endpoint}${url.includes('?') ? '&' : '?'}${queryString}`;
+    }
+    return this.request<T>(url, { method: 'GET' });
   }
 
   /**
@@ -199,13 +205,12 @@ export const authAPI = {
  */
 export const pollsAPI = {
   /**
-   * Retrieves a paginated list of polls
-   * @param page - Page number (1-based, defaults to 1)
-   * @param limit - Number of polls per page (defaults to 10)
-   * @returns Promise resolving to paginated polls response
+   * Retrieves a list of polls
+   * @param params - Optional parameters including page, limit, and fetchAll
+   * @returns Promise resolving to polls response
    */
-  getPolls: (page = 1, limit = 10) =>
-    api.get(`/polls?page=${page}&limit=${limit}`),
+  getPolls: (params?: Record<string, string>) =>
+    api.get('/polls', params),
   
   /**
    * Retrieves a specific poll by ID

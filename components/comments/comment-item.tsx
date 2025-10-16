@@ -24,10 +24,12 @@ interface Comment {
   created_at: string
   updated_at: string
   is_edited: boolean
-  user_id: string
+  user_id: string | null
   poll_id: string
   parent_id: string | null
-  user: {
+  is_anonymous: boolean
+  anonymous_name: string | null
+  user?: {
     id: string
     email: string
     full_name?: string
@@ -51,9 +53,16 @@ export function CommentItem({ comment, onCommentUpdated, depth = 0 }: CommentIte
   const { user } = useAuth()
   const { isAdmin, isModerator } = useUserProfile()
   
-  const isOwner = user?.id === comment.user_id
-  const canEdit = isOwner
+  const isOwner = !comment.is_anonymous && user?.id === comment.user_id
+  const canEdit = isOwner && !comment.is_anonymous // Anonymous comments cannot be edited
   const canDelete = isOwner || isAdmin || isModerator
+
+  // Display name logic
+  const displayName = comment.is_anonymous 
+    ? comment.anonymous_name || 'Anonymous'
+    : comment.user?.full_name || comment.user?.email || 'Unknown User'
+  
+  const displayBadge = comment.is_anonymous ? 'Anonymous' : null
   const maxDepth = 3 // Maximum nesting level
 
   const handleReplyAdded = () => {
@@ -70,14 +79,25 @@ export function CommentItem({ comment, onCommentUpdated, depth = 0 }: CommentIte
     setIsUpdating(true)
 
     try {
-      const { error } = await supabase
-        .from('comments')
-        .update({
-          content: editContent.trim(),
-          is_edited: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', comment.id)
+      const withTimeout = async <T,>(promise: Promise<T>, ms: number, label = 'Operation'): Promise<T> => {
+        return await Promise.race([
+          promise,
+          new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} timed out`)), ms)),
+        ])
+      }
+
+      const { error } = await withTimeout(
+        supabase
+          .from('comments')
+          .update({
+            content: editContent.trim(),
+            is_edited: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', comment.id),
+        8000,
+        'Update comment'
+      )
 
       if (error) throw error
 
@@ -117,10 +137,6 @@ export function CommentItem({ comment, onCommentUpdated, depth = 0 }: CommentIte
     }
   }
 
-  const getUserDisplayName = () => {
-    return comment.user.full_name || comment.user.email.split('@')[0]
-  }
-
   return (
     <div className={`${depth > 0 ? 'ml-8 border-l-2 border-muted pl-4' : ''}`}>
       <Card className="mb-4">
@@ -129,15 +145,20 @@ export function CommentItem({ comment, onCommentUpdated, depth = 0 }: CommentIte
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
                 <span className="text-sm font-medium">
-                  {getUserDisplayName().charAt(0).toUpperCase()}
+                  {displayName.charAt(0).toUpperCase()}
                 </span>
               </div>
               <div>
-                <p className="font-medium text-sm">{getUserDisplayName()}</p>
+                <p className="font-medium text-sm">{displayName}</p>
+                {displayBadge && (
+                  <Badge variant="secondary" className="text-xs mb-1">
+                    {displayBadge}
+                  </Badge>
+                )}
                 <p className="text-xs text-muted-foreground">
                   {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
                   {comment.is_edited && (
-                    <Badge variant="secondary" className="ml-2 text-xs">
+                    <Badge variant="outline" className="ml-2 text-xs">
                       Edited
                     </Badge>
                   )}

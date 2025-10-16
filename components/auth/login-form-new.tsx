@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -47,6 +47,7 @@ interface FormErrors {
 export function LoginForm({ onSuccess, redirectTo = '/', className }: LoginFormProps) {
   const router = useRouter();
   const { refreshSession, user } = useAuth();
+  const isSubmittingRef = useRef(false);
   
   // Form state
   const [formData, setFormData] = useState<LoginFormData>({
@@ -182,6 +183,9 @@ export function LoginForm({ onSuccess, redirectTo = '/', className }: LoginFormP
    */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingRef.current) {
+      return;
+    }
     
     // Mark all fields as touched for validation display
     setTouchedFields(new Set(['email', 'password']));
@@ -195,10 +199,41 @@ export function LoginForm({ onSuccess, redirectTo = '/', className }: LoginFormP
     }
 
     setIsLoading(true);
+    isSubmittingRef.current = true;
 
     try {
       console.log('Login form - Starting login process');
       
+      // Pre-clear any lingering session from a recent sign-out to avoid race conditions
+      try {
+        const { data: current } = await supabase.auth.getSession();
+        if (current?.session) {
+          console.log('Login form - Pre-clearing existing session before login');
+          try {
+            await supabase.auth.signOut();
+          } catch (preSignOutErr) {
+            console.warn('Login form - Pre-clear signOut failed', preSignOutErr);
+          }
+          // Wait until Supabase reports no active session to avoid race conditions
+          const waitUntilSignedOut = async (timeoutMs = 2500) => {
+            const start = Date.now();
+            while (Date.now() - start < timeoutMs) {
+              try {
+                const { data } = await supabase.auth.getSession();
+                if (!data?.session) return true;
+              } catch (_) {
+                // ignore
+              }
+              await new Promise((r) => setTimeout(r, 100));
+            }
+            return false;
+          };
+          await waitUntilSignedOut(2500);
+        }
+      } catch (precheckErr) {
+        console.warn('Login form - Pre-clear session check failed', precheckErr);
+      }
+
       // Direct Supabase authentication for more reliable session handling
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email.trim(),
@@ -222,6 +257,7 @@ export function LoginForm({ onSuccess, redirectTo = '/', className }: LoginFormP
         
         setErrors({ general: errorMessage });
         setIsLoading(false);
+        isSubmittingRef.current = false;
         return;
       }
 
@@ -229,12 +265,37 @@ export function LoginForm({ onSuccess, redirectTo = '/', className }: LoginFormP
       
       // Success state with visual feedback
       setIsSuccess(true);
+
+      // Mark that the user explicitly signed in to allow session restoration across routes
+      try {
+        sessionStorage.setItem('authJustSignedIn', 'true');
+        // Also set a persistent explicit_login flag for provider detection across navigations
+        localStorage.setItem('explicit_login', 'true');
+      } catch (_) {
+        // no-op
+      }
       
       // Ensure the redirect path is stored reliably
       if (redirectTo) {
         sessionStorage.setItem('authRedirectPath', redirectTo);
         localStorage.setItem('authRedirectPath', redirectTo);
       }
+      
+      // Ensure Supabase has finalized the session before refreshing provider state
+      const waitUntilSignedIn = async (timeoutMs = 2500) => {
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+          try {
+            const { data } = await supabase.auth.getSession();
+            if (data?.session?.user) return true;
+          } catch (_) {
+            // ignore
+          }
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        return false;
+      };
+      await waitUntilSignedIn(2500);
       
       // Brief delay to show success state
       setTimeout(async () => {
@@ -254,7 +315,9 @@ export function LoginForm({ onSuccess, redirectTo = '/', className }: LoginFormP
           // Still redirect even if refresh fails
           performRedirect();
         }
-      }, 1000);
+        // Prevent further submissions after success
+        isSubmittingRef.current = false;
+      }, 600);
 
     } catch (error) {
       console.error('Login error:', error);
@@ -262,6 +325,7 @@ export function LoginForm({ onSuccess, redirectTo = '/', className }: LoginFormP
         general: 'Network error. Please check your connection and try again.' 
       });
       setIsLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 

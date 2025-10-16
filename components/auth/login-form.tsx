@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Eye, EyeOff, Mail, Lock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/components/providers/auth-provider';
 import { adaptiveClient } from '@/lib/adaptive-client';
+import { supabase } from '@/lib/supabase';
 import React from 'react';
 
 /**
@@ -63,7 +64,22 @@ interface FormErrors {
  */
 export const LoginForm = React.memo(function LoginForm({ onSuccess, redirectTo = '/', className }: LoginFormProps) {
   const router = useRouter();
-  const { refreshSession } = useAuth();
+  const { user, loading, refreshSession } = useAuth();
+  const isSubmittingRef = useRef(false);
+  
+  // Normalize redirect target to avoid relative routing (e.g., "dashboard" -> "/dashboard")
+  const normalizeRedirect = (target?: string) => {
+    const fallback = '/';
+    if (!target || target.trim() === '') return fallback;
+    // If absolute URL, convert to path to keep within app router
+    try {
+      const url = new URL(target, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+      const path = url.pathname + url.search + url.hash;
+      return path || fallback;
+    } catch {
+      return target.startsWith('/') ? target : `/${target}`;
+    }
+  };
   
   // Form state
   const [formData, setFormData] = useState<LoginFormData>({
@@ -77,6 +93,24 @@ export const LoginForm = React.memo(function LoginForm({ onSuccess, redirectTo =
   const [showPassword, setShowPassword] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [touchedFields, setTouchedFields] = useState<Set<keyof LoginFormData>>(new Set());
+
+  // If already authenticated, redirect away from login to prevent spinner loops
+  useEffect(() => {
+    if (!loading && user) {
+      const finalRedirect = normalizeRedirect(redirectTo);
+      router.replace(finalRedirect);
+    }
+  }, [user, loading, redirectTo, router]);
+
+  // Safety: clear spinner if a request stalls unexpectedly
+  useEffect(() => {
+    if (isLoading && !isSuccess) {
+      const timeout = setTimeout(() => {
+        setIsLoading(false);
+      }, 12000);
+      return () => clearTimeout(timeout);
+    }
+  }, [isLoading, isSuccess]);
 
   /**
    * Handle input changes with real-time validation clearing
@@ -140,6 +174,9 @@ export const LoginForm = React.memo(function LoginForm({ onSuccess, redirectTo =
    */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingRef.current) {
+      return;
+    }
     
     // Mark all fields as touched for validation display
     setTouchedFields(new Set(['email', 'password']));
@@ -152,11 +189,55 @@ export const LoginForm = React.memo(function LoginForm({ onSuccess, redirectTo =
       return;
     }
 
+    // If already signed in, skip re-auth and redirect
+    if (user) {
+      setIsSuccess(true);
+      const finalRedirect = normalizeRedirect(redirectTo);
+      try {
+        await refreshSession();
+      } catch (_) {}
+      setTimeout(() => {
+        router.push(finalRedirect);
+      }, 500);
+      return;
+    }
+
     setIsLoading(true);
+    isSubmittingRef.current = true;
 
     try {
       console.log('Login form - Starting login process');
       
+      // Pre-clear any lingering session from a recent sign-out
+      try {
+        const { data: current } = await supabase.auth.getSession();
+        if (current?.session) {
+          console.log('Login form - Pre-clearing existing session before login');
+          try {
+            await supabase.auth.signOut();
+          } catch (preSignOutErr) {
+            console.warn('Login form - Pre-clear signOut failed', preSignOutErr);
+          }
+          // Wait until Supabase reports no active session to avoid race conditions
+          const waitUntilSignedOut = async (timeoutMs = 2500) => {
+            const start = Date.now();
+            while (Date.now() - start < timeoutMs) {
+              try {
+                const { data } = await supabase.auth.getSession();
+                if (!data?.session) return true;
+              } catch (_) {
+                // ignore
+              }
+              await new Promise((r) => setTimeout(r, 100));
+            }
+            return false;
+          };
+          await waitUntilSignedOut(2500);
+        }
+      } catch (precheckErr) {
+        console.warn('Login form - Pre-clear session check failed', precheckErr);
+      }
+
       // Use adaptive client for authentication
       console.log('Attempting authentication with adaptive client...');
       const result = await adaptiveClient.auth.login({
@@ -168,10 +249,35 @@ export const LoginForm = React.memo(function LoginForm({ onSuccess, redirectTo =
         console.log('Authentication successful');
         setIsSuccess(true);
         
+        // Mark that the user explicitly signed in to allow session restoration across routes
+        try {
+          sessionStorage.setItem('authJustSignedIn', 'true');
+          // Persistent explicit login flag to help provider restore session across routes
+          localStorage.setItem('explicit_login', 'true');
+        } catch (_) {
+          // no-op
+        }
+
         // Store the redirect URL directly in sessionStorage for reliability
-        const finalRedirect = redirectTo || '/';
+        const finalRedirect = normalizeRedirect(redirectTo);
         sessionStorage.setItem('authRedirectUrl', finalRedirect);
         console.log('Stored redirect URL in sessionStorage:', finalRedirect);
+        
+        // Ensure Supabase has finalized the session before refreshing provider state
+        const waitUntilSignedIn = async (timeoutMs = 2500) => {
+          const start = Date.now();
+          while (Date.now() - start < timeoutMs) {
+            try {
+              const { data } = await supabase.auth.getSession();
+              if (data?.session?.user) return true;
+            } catch (_) {
+              // ignore
+            }
+            await new Promise((r) => setTimeout(r, 100));
+          }
+          return false;
+        };
+        await waitUntilSignedIn(2500);
         
         // Refresh the auth context to update the UI
         await refreshSession();
@@ -183,8 +289,18 @@ export const LoginForm = React.memo(function LoginForm({ onSuccess, redirectTo =
         
         // Brief delay to show success state, then redirect
         setTimeout(() => {
-          router.push(finalRedirect);
-        }, 1500);
+          try {
+            // Prefer hard redirect to avoid client-side navigation races
+            window.location.assign(finalRedirect);
+          } catch (assignErr) {
+            console.warn('Login form - Hard redirect failed, falling back to router.push', assignErr);
+            try {
+              router.push(finalRedirect);
+            } catch (pushErr) {
+              console.error('Login form - router.push also failed', pushErr);
+            }
+          }
+        }, 600);
         
         return;
       } else {
@@ -201,6 +317,7 @@ export const LoginForm = React.memo(function LoginForm({ onSuccess, redirectTo =
         }
         
         setErrors({ general: errorMessage });
+        isSubmittingRef.current = false;
         return;
       }
 
@@ -209,9 +326,14 @@ export const LoginForm = React.memo(function LoginForm({ onSuccess, redirectTo =
       setErrors({ 
         general: 'Network error. Please check your connection and try again.' 
       });
+      isSubmittingRef.current = false;
     } finally {
       if (!isSuccess) {
         setIsLoading(false);
+      }
+      // Reset submit guard if we’re not in success state
+      if (!isSuccess) {
+        isSubmittingRef.current = false;
       }
     }
   };

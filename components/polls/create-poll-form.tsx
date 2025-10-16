@@ -264,11 +264,11 @@ export function CreatePollForm() {
         console.log('FastAPI poll creation successful:', fastAPIResult.data);
         setIsSuccess(true);
         
-        // Brief delay to show success state, then navigate to the poll page
+        // Show success state for 5 seconds, then navigate to the poll page
         setTimeout(() => {
           console.log('Navigating to FastAPI poll ID:', fastAPIResult.data?.id);
           router.push(`/polls/${fastAPIResult.data?.id}`);
-        }, 1500);
+        }, 5000);
         
         return;
       }
@@ -299,11 +299,11 @@ export function CreatePollForm() {
         // Success state with visual feedback
         setIsSuccess(true);
         
-        // Brief delay to show success state, then navigate to the poll page
+        // Show success state for 5 seconds, then navigate to the poll page
         setTimeout(() => {
           console.log('Navigating to poll ID:', (newPoll.data as any).id); // Debug logging
           router.push(`/polls/${(newPoll.data as any).id}`);
-        }, 1500);
+        }, 5000);
       } else {
         console.error('Failed to create poll:', newPoll.error);
         setErrors({ general: newPoll.error || 'Failed to create poll' });

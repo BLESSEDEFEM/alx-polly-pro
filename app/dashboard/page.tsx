@@ -52,36 +52,53 @@ export default function DashboardPage() {
       
       try {
         setStatsLoading(true);
-        
-        // Fetch user's polls with vote counts
+
+        // Use server-side counts to avoid client-side join limitations and ensure accuracy
+        const { count: totalPollsCount, error: totalPollsError } = await supabase
+          .from('polls')
+          .select('id', { count: 'exact', head: true })
+          .eq('created_by', user.id);
+
+        if (totalPollsError) {
+          console.error('Error counting total polls:', totalPollsError);
+        }
+
+        const { count: activePollsCount, error: activePollsError } = await supabase
+          .from('polls')
+          .select('id', { count: 'exact', head: true })
+          .eq('created_by', user.id)
+          .eq('is_active', true);
+
+        if (activePollsError) {
+          console.error('Error counting active polls:', activePollsError);
+        }
+
+        // For total votes, fetch user's polls and sum their option vote_counts
         const { data: pollsData, error: pollsError } = await supabase
           .from('polls')
           .select(`
             id,
             is_active,
-            poll_options (
-              vote_count
-            )
+            poll_options (vote_count)
           `)
           .eq('created_by', user.id);
 
         if (pollsError) {
-          console.error('Error fetching stats:', pollsError);
-          return;
+          console.error('Error fetching polls for votes:', pollsError);
         }
 
-        const totalPolls = pollsData?.length || 0;
-        const activePolls = pollsData?.filter(poll => poll.is_active).length || 0;
-        const totalVotes = pollsData?.reduce((sum, poll) => {
-          const pollVotes = poll.poll_options?.reduce((pollSum: number, option: any) => 
-            pollSum + (option.vote_count || 0), 0) || 0;
+        const totalVotes = (pollsData || []).reduce((sum, poll) => {
+          const pollVotes = (poll.poll_options || []).reduce((pollSum: number, option: any) => {
+            const count = Math.max(0, Number(option.vote_count ?? 0) || 0);
+            return pollSum + count;
+          }, 0);
           return sum + pollVotes;
-        }, 0) || 0;
+        }, 0);
 
         setStats({
-          totalPolls,
+          totalPolls: totalPollsCount || 0,
           totalVotes,
-          activePolls
+          activePolls: activePollsCount || 0,
         });
       } catch (error) {
         console.error('Error fetching user stats:', error);

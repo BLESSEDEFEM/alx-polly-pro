@@ -14,10 +14,12 @@ interface Comment {
   created_at: string
   updated_at: string
   is_edited: boolean
-  user_id: string
+  user_id: string | null
   poll_id: string
   parent_id: string | null
-  user: {
+  is_anonymous: boolean
+  anonymous_name: string | null
+  user?: {
     id: string
     email: string
     full_name?: string
@@ -47,12 +49,21 @@ export function CommentList({ pollId }: CommentListProps) {
 
       if (commentsError) throw commentsError
 
-      // Fetch user profiles for all unique user IDs
-      const userIds = [...new Set(commentsData?.map(comment => comment.user_id) || [])]
-      const { data: userProfiles, error: userError } = await supabase
-        .from('user_profiles')
-        .select('id, email, full_name')
-        .in('id', userIds)
+      // Fetch user profiles for all unique user IDs (excluding anonymous comments)
+      const userIds = [...new Set(commentsData?.filter(comment => !comment.is_anonymous && comment.user_id).map(comment => comment.user_id) || [])]
+      
+      let userProfiles = []
+      let userError = null
+      
+      if (userIds.length > 0) {
+        const result = await supabase
+          .from('user_profiles')
+          .select('id, email, full_name')
+          .in('id', userIds)
+        
+        userProfiles = result.data || []
+        userError = result.error
+      }
 
       if (userError) {
         console.warn('Could not fetch user profiles:', userError)
@@ -64,14 +75,14 @@ export function CommentList({ pollId }: CommentListProps) {
         userMap.set(user.id, user)
       })
 
-      // Attach user data to comments
+      // Attach user data to comments (only for non-anonymous comments)
       const commentsWithUsers = commentsData?.map(comment => ({
         ...comment,
-        user: userMap.get(comment.user_id) || {
+        user: comment.is_anonymous ? undefined : (userMap.get(comment.user_id) || {
           id: comment.user_id,
           email: 'Unknown User',
           full_name: 'Unknown User'
-        }
+        })
       })) || []
 
       // Organize comments into a tree structure

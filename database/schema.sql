@@ -318,6 +318,12 @@ CREATE TRIGGER increment_vote_count_trigger
 CREATE TRIGGER decrement_vote_count_trigger
     AFTER DELETE ON public.votes
     FOR EACH ROW EXECUTE FUNCTION decrement_vote_count();
+    AFTER INSERT ON public.votes
+    FOR EACH ROW EXECUTE FUNCTION increment_vote_count();
+
+CREATE TRIGGER decrement_vote_count_trigger
+    AFTER DELETE ON public.votes
+    FOR EACH ROW EXECUTE FUNCTION decrement_vote_count();
 
 -- ============================================================================
 -- SAMPLE DATA (OPTIONAL)
