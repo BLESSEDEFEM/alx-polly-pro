@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+ 
+# Local personal docs (do not publish)
+docs/resume.md
+docs/cover-letter.md
